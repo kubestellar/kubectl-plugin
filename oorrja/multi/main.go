@@ -1,3 +1,7 @@
+// This CLI plugin allows you to list nodes from the current Kubernetes cluster
+// and from remote managed clusters registered via OCM (Open Cluster Management).
+// Usage: kubectl multi get nodes [--remote-context <name>] [--kubeconfig <path>]
+
 package main
 
 import (
@@ -21,6 +25,8 @@ const (
 	separatorLen = 90
 )
 
+// main is the entry point. It sets up clients for local and remote clusters,
+// prints the local node table, and queries remote managed clusters if provided.
 func main() {
 	remoteCtx := flag.String("remote-context", "its1", "remote hosting context (for ManagedCluster)")
 	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig")
@@ -39,6 +45,8 @@ func main() {
 	}
 }
 
+// buildClient builds a Kubernetes clientset using a kubeconfig path and optional context override.
+// returns the context name and clientset.
 func buildClient(kcfg, ctxOverride string) (string, *kubernetes.Clientset) {
 	loading := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kcfg != "" {
@@ -61,6 +69,8 @@ func buildClient(kcfg, ctxOverride string) (string, *kubernetes.Clientset) {
 	return raw.CurrentContext, clientset
 }
 
+// buildDynamicClient builds a dynamic Kubernetes client for interacting with custom resources,
+// like ManagedClusters, using a specific context.
 func buildDynamicClient(kcfg, ctxOverride string) dynamic.Interface {
 	loading := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kcfg != "" {
@@ -75,6 +85,8 @@ func buildDynamicClient(kcfg, ctxOverride string) dynamic.Interface {
 	return dyn
 }
 
+// listNodes retrieves and prints details of nodes (name, status, role, age, version)
+// in a given cluster context using the provided clientset.
 func listNodes(ctxName string, cs *kubernetes.Clientset) {
 	nodes, err := cs.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	exitIf(err)
@@ -102,6 +114,8 @@ func listNodes(ctxName string, cs *kubernetes.Clientset) {
 	}
 }
 
+// listManagedClusters fetches managed clusters from a remote context and prints their metadata.
+// It then queries and prints node data for each cluster (excluding the local context).
 func listManagedClusters(dyn dynamic.Interface, remoteCtx, kubeconfig, localCtx string) {
 	gvr := schema.GroupVersionResource{
 		Group:    "cluster.open-cluster-management.io",
@@ -125,6 +139,7 @@ func listManagedClusters(dyn dynamic.Interface, remoteCtx, kubeconfig, localCtx 
 	}
 }
 
+// printTableHeader prints the header row of the output table.
 func printTableHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, tableFmt, "CTX", "NAME", "STATUS", "ROLES", "AGE", "VERSION")
@@ -135,16 +150,19 @@ func printTableSeparator() {
 	fmt.Println(strings.Repeat("-", separatorLen))
 }
 
+// printTableRow prints a formatted row of cluster/node data in the table.
 func printTableRow(ctx, name, status, roles, age, version string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, tableFmt, ctx, name, status, roles, age, version)
 	w.Flush()
 }
 
+// humanAge returns a human-readable string showing the age of a resource from its creation time.
 func humanAge(t time.Time) string {
 	return time.Since(t).Round(time.Second).String()
 }
 
+// exitIf prints an error and exits the program if the given error is non-nil.
 func exitIf(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
