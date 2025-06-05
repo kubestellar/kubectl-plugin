@@ -22,8 +22,7 @@
 Clone your fork and build the binary:
 
 ```bash
-git clone https://github.com/oorrja/kubectl-plugin.git
-cd kubectl-plugin/oorrja/multi
+git clone https://github.com/kubestellar/kubectl-plugin.git
 
 # Build the plugin
 go build -o kubectl-multi
