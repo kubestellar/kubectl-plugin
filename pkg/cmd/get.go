@@ -118,9 +118,9 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
 	// Print header only once at the top
 	if showLabels {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\tLABELS\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\tLABELS\n")
 	} else {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\n")
 	}
 
 	for _, clusterInfo := range clusters {
@@ -148,11 +148,11 @@ func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 
 			if showLabels {
 				labels := util.FormatLabels(node.Labels)
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, node.Name, status, role, age, version, labels)
-			} else {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, node.Name, status, role, age, version)
+					clusterInfo.Name, node.Name, status, role, age, version, labels)
+			} else {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					clusterInfo.Name, node.Name, status, role, age, version)
 			}
 		}
 	}
@@ -163,15 +163,15 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
 		}
 	}
 
@@ -207,19 +207,19 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 				if showLabels {
 					labels := util.FormatLabels(pod.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age, labels)
+						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age)
+						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(pod.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pod.Name, ready, status, restarts, age, labels)
+						clusterInfo.Name, pod.Name, ready, status, restarts, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pod.Name, ready, status, restarts, age)
+						clusterInfo.Name, pod.Name, ready, status, restarts, age)
 				}
 			}
 		}
@@ -231,15 +231,15 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
 		}
 	}
 
@@ -276,19 +276,19 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 				if showLabels {
 					labels := util.FormatLabels(svc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
+						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age)
+						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(svc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
+						clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age)
+						clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age)
 				}
 			}
 		}
@@ -300,15 +300,15 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
 		}
 	}
 
@@ -348,19 +348,19 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 				if showLabels {
 					labels := util.FormatLabels(deploy.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age, labels)
+						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age)
+						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(deploy.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, deploy.Name, ready, upToDate, available, age, labels)
+						clusterInfo.Name, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, deploy.Name, ready, upToDate, available, age)
+						clusterInfo.Name, deploy.Name, ready, upToDate, available, age)
 				}
 			}
 		}
@@ -371,9 +371,9 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
 	// Print header only once at the top
 	if showLabels {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tAGE\tLABELS\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tAGE\tLABELS\n")
 	} else {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tAGE\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tAGE\n")
 	}
 
 	for _, clusterInfo := range clusters {
@@ -399,11 +399,11 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 
 			if showLabels {
 				labels := util.FormatLabels(ns.Labels)
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, ns.Name, status, age, labels)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+					clusterInfo.Name, ns.Name, status, age, labels)
 			} else {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, ns.Name, status, age)
+					clusterInfo.Name, ns.Name, status, age)
 			}
 		}
 	}
@@ -414,15 +414,15 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tDATA\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tDATA\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\n")
 		}
 	}
 
@@ -455,20 +455,20 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(cm.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age, labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
+						clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(cm.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, cm.Name, dataCount, age, labels)
+						clusterInfo.Name, cm.Name, dataCount, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, cm.Name, dataCount, age)
+						clusterInfo.Name, cm.Name, dataCount, age)
 				}
 			}
 		}
@@ -480,15 +480,15 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tTYPE\tDATA\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\n")
 		}
 	}
 
@@ -522,20 +522,20 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(secret.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age, labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
+						clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(secret.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, secret.Name, secretType, dataCount, age, labels)
+						clusterInfo.Name, secret.Name, secretType, dataCount, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, secret.Name, secretType, dataCount, age)
+						clusterInfo.Name, secret.Name, secretType, dataCount, age)
 				}
 			}
 		}
@@ -546,9 +546,9 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
 	// Print header only once at the top
 	if showLabels {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\tLABELS\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\tLABELS\n")
 	} else {
-		fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\n")
+		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\n")
 	}
 
 	for _, clusterInfo := range clusters {
@@ -580,11 +580,11 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 
 			if showLabels {
 				labels := util.FormatLabels(pv.Labels)
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age, labels)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age, labels)
 			} else {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					clusterInfo.Context, clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age)
+					clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age)
 			}
 		}
 	}
@@ -595,15 +595,15 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 	// Print header only once at the top
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
 		}
 	}
 
@@ -641,19 +641,19 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 				if showLabels {
 					labels := util.FormatLabels(pvc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
+						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
+						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(pvc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
+						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
+						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			}
 		}
@@ -665,15 +665,15 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 	// Print header only once at the top for generic resources
 	if allNamespaces {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAMESPACE\tNAME\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\n")
 		}
 	} else {
 		if showLabels {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tAGE\tLABELS\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tLABELS\n")
 		} else {
-			fmt.Fprintf(tw, "CONTEXT\tCLUSTER\tNAME\tAGE\n")
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\n")
 		}
 	}
 
@@ -717,20 +717,20 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			if isNamespaced && allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(item.GetLabels())
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, item.GetNamespace(), item.GetName(), age, labels)
-				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, item.GetNamespace(), item.GetName(), age)
+						clusterInfo.Name, item.GetNamespace(), item.GetName(), age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, item.GetNamespace(), item.GetName(), age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(item.GetLabels())
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, item.GetName(), age, labels)
-				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-						clusterInfo.Context, clusterInfo.Name, item.GetName(), age)
+						clusterInfo.Name, item.GetName(), age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\n",
+						clusterInfo.Name, item.GetName(), age)
 				}
 			}
 		}
