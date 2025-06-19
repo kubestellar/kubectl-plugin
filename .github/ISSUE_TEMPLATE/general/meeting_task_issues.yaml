@@ -1,0 +1,73 @@
+name: 'General/Meeting/Task Issue'
+description: 'For general issues, meeting notes, or task tracking not covered by other templates.'
+title: '🗒️[GENERAL/MEETING/TASK]: '
+labels:
+  - general
+  - meeting
+  - task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for:
+        - General project issues
+        - Meeting notes or action items
+        - Task tracking or TODOs
+        - Anything not covered by other templates
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 'Summary/Topic'
+      description: 'Brief summary of the issue, meeting, or task.'
+      placeholder: 'Describe the main point or topic...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: 'Details/Notes'
+      description: 'Provide details, meeting notes, or task breakdown.'
+      placeholder: 'Meeting notes, discussion points, task steps, etc.'
+    validations:
+      required: false
+
+  - type: textarea
+    id: action-items
+    attributes:
+      label: 'Action Items/Tasks'
+      description: 'List any action items, tasks, or next steps.'
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+        - [ ] Task 3
+    validations:
+      required: false
+
+  - type: textarea
+    id: participants
+    attributes:
+      label: 'Participants/Assignees'
+      description: 'Who is involved or responsible?'
+      placeholder: 'List of participants, assignees, or stakeholders.'
+    validations:
+      required: false
+
+  - type: textarea
+    id: due-date
+    attributes:
+      label: 'Due Date/Timeline'
+      description: 'When should this be completed (if applicable)?'
+      placeholder: 'YYYY-MM-DD or Sprint X, etc.'
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information.'
+      placeholder: 'Links, references, or extra notes.'
+    validations:
+      required: false 

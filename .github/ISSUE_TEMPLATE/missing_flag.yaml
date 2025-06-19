@@ -1,0 +1,90 @@
+name: 'Missing Flag'
+description: 'Report when a kubectl flag is not supported or missing from the plugin.'
+title: '🏳️[MISSING FLAG]: '
+labels:
+  - enhancement
+  - flags
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when you encounter a kubectl flag that isn't supported by kubectl-multi.
+        
+        **Examples:**
+        - Flag not recognized
+        - Flag ignored silently
+        - Flag causes error
+        - Flag works differently than expected
+
+
+  - type: textarea
+    id: flag-details
+    attributes:
+      label: 'Flag Details'
+      description: 'What flag is missing? Include the full flag syntax.'
+      placeholder: '--selector, -l, --field-selector, --output, -o, etc.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-with-flag
+    attributes:
+      label: 'Command with Flag'
+      description: 'The exact kubectl-multi command you tried to run with the flag'
+      placeholder: 'kubectl multi get pods --selector=app=nginx'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 'Expected Behavior'
+      description: 'What should happen when this flag is used?'
+      placeholder: 'The flag should filter resources based on the selector...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 'Actual Behavior'
+      description: 'What actually happens when you use this flag?'
+      placeholder: 'The flag is ignored, causes an error, or produces unexpected results...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: standard-kubectl-behavior
+    attributes:
+      label: 'Standard kubectl Behavior'
+      description: 'How does this flag work with standard kubectl?'
+      placeholder: 'With standard kubectl, this flag does X...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 'Use Case'
+      description: 'Why do you need this flag? What are you trying to accomplish?'
+      placeholder: 'I need to filter resources by labels across all clusters...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: priority
+    attributes:
+      label: 'Priority'
+      description: 'How important is this flag for your workflow?'
+      placeholder: 'High/Medium/Low - explain why...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information about the flag or your setup.'
+      placeholder: 'Additional details, error messages, etc...'
+    validations:
+      required: false 

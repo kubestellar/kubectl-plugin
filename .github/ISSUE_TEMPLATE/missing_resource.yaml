@@ -1,0 +1,95 @@
+name: 'Missing Resource Implementation'
+description: 'Report when a Kubernetes resource type is not supported or missing from the plugin.'
+title: '🗂️[MISSING RESOURCE]: '
+labels:
+  - enhancement
+  - resource
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when you encounter a Kubernetes resource type that isn't supported by kubectl-multi.
+        
+        **Examples:**
+        - Resource type not recognized
+        - Command fails with "resource not found"
+        - Resource exists in clusters but not shown by plugin
+        - Custom resources (CRDs) not working
+
+
+  - type: textarea
+    id: resource-type
+    attributes:
+      label: 'Resource Type'
+      description: 'What Kubernetes resource type is missing?'
+      placeholder: 'pods, services, deployments, customresources, etc.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-attempted
+    attributes:
+      label: 'Command Attempted'
+      description: 'The exact kubectl-multi command you tried to run'
+      placeholder: 'kubectl multi get <resource-type>'
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-message
+    attributes:
+      label: 'Error Message (if any)'
+      description: 'What error message did you receive?'
+      placeholder: 'Paste the error message here...'
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: standard-kubectl-working
+    attributes:
+      label: 'Standard kubectl Behavior'
+      description: 'Does this resource work with standard kubectl on individual clusters?'
+      placeholder: 'Yes/No - describe what happens with standard kubectl...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: resource-details
+    attributes:
+      label: 'Resource Details'
+      description: 'Additional details about the resource (API version, namespace, custom resource details, etc.)'
+      placeholder: |
+        - API Version: v1, apps/v1, etc.
+        - Namespace: default, kube-system, etc.
+        - Custom Resource: Group, Version, Kind
+        - Any special characteristics
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 'Use Case'
+      description: 'Why do you need this resource supported? What are you trying to accomplish?'
+      placeholder: 'I need to monitor X across all clusters...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: priority
+    attributes:
+      label: 'Priority'
+      description: 'How important is this resource for your workflow?'
+      placeholder: 'High/Medium/Low - explain why...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information about the resource or your setup.'
+      placeholder: 'Additional details, cluster setup, etc...'
+    validations:
+      required: false 

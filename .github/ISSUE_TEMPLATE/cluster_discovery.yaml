@@ -1,0 +1,87 @@
+name: 'Cluster Discovery Issue'
+description: 'Report problems with discovering or connecting to KubeStellar managed clusters.'
+title: '🔭[CLUSTER DISCOVERY]: '
+labels:
+  - bug
+  - cluster-discovery
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when the plugin has trouble discovering or connecting to clusters managed by KubeStellar.
+        
+        **Examples:**
+        - No clusters discovered
+        - Some clusters missing from discovery
+        - Connection failures to clusters
+        - WDS clusters not properly filtered
+        - Authentication issues with cluster access
+
+
+  - type: textarea
+    id: kubestellar-setup
+    attributes:
+      label: 'KubeStellar Setup'
+      description: 'Describe your KubeStellar setup (ITS cluster, managed clusters, WDS clusters)'
+      placeholder: |
+        - ITS Cluster: its1
+        - Managed Clusters: cluster1, cluster2, cluster3
+        - WDS Clusters: wds1, wds2
+        - Total expected clusters: X
+    validations:
+      required: false
+
+  
+  - type: textarea
+    id: kubeconfig-context
+    attributes:
+      label: 'KubeConfig Context'
+      description: 'What context are you using? Are you connected to the ITS cluster?'
+      placeholder: 'Current context: its1'
+    validations:
+      required: true
+
+
+
+  - type: textarea
+    id: command-executed
+    attributes:
+      label: 'Command Executed'
+      description: 'What kubectl-multi command did you run?'
+      placeholder: 'kubectl multi get pods...'
+    validations:
+      required: true
+
+
+
+  - type: textarea
+    id: discovery-results
+    attributes:
+      label: 'Discovery Results'
+      description: 'What clusters were discovered vs. expected?'
+      placeholder: |
+        Discovered: cluster1, cluster2
+        Expected: cluster1, cluster2, cluster3
+        Missing: cluster3
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: 'Error Messages'
+      description: 'Any error messages or warnings during cluster discovery'
+      placeholder: 'Paste error messages here...'
+      render: shell
+    validations:
+      required: false
+
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information about your setup or the issue.'
+      placeholder: 'Additional details, logs, or observations...'
+    validations:
+      required: false 
