@@ -67,6 +67,24 @@ kubectl multi get services -o wide`,
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "watch for changes to the requested object(s)")
 	cmd.Flags().BoolVar(&watchOnly, "watch-only", false, "watch for changes to the requested object(s), without listing/getting first")
 
+	// Set custom help template to match desired format
+	cmd.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}{{if .HasExample}}Examples:
+{{.Example}}{{end}}
+
+{{if .HasAvailableFlags}}Options:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
+
+{{if .HasAvailableSubCommands}}Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}
+
+{{if .HasHelpSubCommands}}Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}
+
+{{if .HasAvailableSubCommands}}Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`)
+
 	return cmd
 }
 

@@ -12,6 +12,19 @@ var (
 	allNamespaces bool
 )
 
+const helpTemplate = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}{{if .Example}}Examples:
+{{.Example}}
+
+{{end}}{{if .HasAvailableFlags}}Options:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}
+
+{{end}}Usage:
+  {{.UseLine}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}
+`
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "kubectl-multi",
@@ -46,6 +59,7 @@ kubectl multi delete deployment nginx`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() error {
+	rootCmd.SetHelpTemplate(helpTemplate)
 	return rootCmd.Execute()
 }
 
