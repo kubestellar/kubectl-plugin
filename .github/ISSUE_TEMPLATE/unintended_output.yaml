@@ -1,0 +1,87 @@
+name: 'Unintended Output'
+description: 'Report when the plugin produces unexpected or incorrect output compared to standard kubectl.'
+title: '⚠️[UNINTENDED OUTPUT]: '
+labels:
+  - bug
+  - output
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when the plugin produces output that differs from what you'd expect from standard kubectl commands.
+        
+        **Examples:**
+        - Wrong resource data displayed
+        - Incorrect cluster context information
+        - Missing or extra columns in output
+        - Wrong output format
+        - Incorrect resource counts
+
+  - type: checkboxes
+    id: existing-issue-check
+    attributes:
+      label: 'Is there an existing issue for this?'
+      description: 'Before creating a new report, please check if someone else has already reported the same issue.'
+      options:
+        - label: "I have searched the existing issues and couldn't find a duplicate."
+          required: true
+
+  - type: textarea
+    id: command-executed
+    attributes:
+      label: 'Command Executed'
+      description: 'The exact kubectl-multi command you ran'
+      placeholder: 'kubectl multi get pods -n kube-system'
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-output
+    attributes:
+      label: 'Actual Output (kubectl-multi)'
+      description: 'What output did you get from kubectl-multi?'
+      placeholder: 'Paste the actual output here...'
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-output
+    attributes:
+      label: 'Expected Output (standard kubectl)'
+      description: 'What output would you expect from standard kubectl on a single cluster?'
+      placeholder: 'Paste the expected output here...'
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: cluster-info
+    attributes:
+      label: 'Cluster Information'
+      description: 'How many clusters are you working with? Any specific cluster details that might be relevant?'
+      placeholder: 'Number of clusters, cluster names, KubeStellar setup details...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 'Steps to Reproduce'
+      description: 'Provide the steps we can follow to reproduce the issue.'
+      placeholder: |
+        1. Set up KubeStellar with X clusters
+        2. Run 'kubectl multi get pods'
+        3. Compare with 'kubectl get pods' on individual clusters
+        4. See the difference in output
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information, logs, or screenshots.'
+      placeholder: 'Additional details, error messages, or observations...'
+    validations:
+      required: false 

@@ -1,0 +1,118 @@
+name: 'Performance Issue'
+description: 'Report when the plugin is slow, uses excessive resources, or has performance problems.'
+title: '⏳[PERFORMANCE]: '
+labels:
+  - bug
+  - performance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when the plugin has performance issues compared to standard kubectl or expected behavior.
+        
+        **Examples:**
+        - Commands take too long to execute
+        - High memory usage
+        - High CPU usage
+        - Slow cluster discovery
+        - Timeout issues
+        - Resource exhaustion
+
+
+  - type: textarea
+    id: performance-metric
+    attributes:
+      label: 'Performance Metric'
+      description: 'What specific performance issue are you experiencing?'
+      placeholder: 'Command execution time, memory usage, CPU usage, etc.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-executed
+    attributes:
+      label: 'Command Executed'
+      description: 'The exact kubectl-multi command that has performance issues'
+      placeholder: 'kubectl multi get pods -A'
+    validations:
+      required: true
+
+  - type: textarea
+    id: execution-time
+    attributes:
+      label: 'Execution Time'
+      description: 'How long does the command take to execute?'
+      placeholder: |
+        kubectl-multi: 45 seconds
+        Standard kubectl (single cluster): 2 seconds
+        Expected: ~10-15 seconds for 5 clusters
+    validations:
+      required: true
+
+  - type: textarea
+    id: resource-usage
+    attributes:
+      label: 'Resource Usage'
+      description: 'Memory and CPU usage during command execution (if measurable)'
+      placeholder: |
+        Memory: 512MB peak
+        CPU: 80% sustained
+        System resources: High disk I/O
+    validations:
+      required: false
+
+  - type: textarea
+    id: cluster-count
+    attributes:
+      label: 'Number of Clusters'
+      description: 'How many clusters are you working with?'
+      placeholder: '5 managed clusters, 2 WDS clusters'
+    validations:
+      required: true
+
+  - type: textarea
+    id: baseline-comparison
+    attributes:
+      label: 'Baseline Comparison'
+      description: 'How does this compare to standard kubectl or other tools?'
+      placeholder: |
+        Standard kubectl on single cluster: 2s
+        kubectl-multi across 5 clusters: 45s
+        Expected: ~10-15s
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 'Steps to Reproduce'
+      description: 'Provide the steps we can follow to reproduce the performance issue.'
+      placeholder: |
+        1. Set up KubeStellar with X clusters
+        2. Run 'kubectl multi get pods -A'
+        3. Measure execution time
+        4. Observe performance degradation
+    validations:
+      required: true
+
+  - type: textarea
+    id: system-info
+    attributes:
+      label: 'System Information'
+      description: 'Relevant system details (OS, kubectl version, plugin version, etc.)'
+      placeholder: |
+        OS: macOS 13.0
+        kubectl: v1.28.0
+        kubectl-multi: v0.1.0
+        Go version: 1.21
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Additional Context'
+      description: 'Any other relevant information about the performance issue.'
+      placeholder: 'Additional details, logs, or observations...'
+    validations:
+      required: false 

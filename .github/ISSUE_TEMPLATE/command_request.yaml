@@ -1,6 +1,6 @@
-name: 'Feature Request'
-description: 'Suggest a new idea or improvement for the project.'
-title: '[FEATURE]'
+name: 'Command Request'
+description: 'Suggest a new command/usecase.'
+title: '💡[COMMAND REQUEST]'
 labels:
   - enhancement
 body:
@@ -13,7 +13,7 @@ body:
     attributes:
       label: 'Problem or Use Case'
       description: 'Is this feature request related to a specific problem or scenario? Provide context and motivations.'
-      placeholder: "I'm always frustrated when [...]"
+      placeholder: 
     validations:
       required: true
 
@@ -25,15 +25,6 @@ body:
       placeholder: 'We could handle this by [...]'
     validations:
       required: true
-
-  - type: checkboxes
-    id: willing-to-contribute
-    attributes:
-      label: 'Are you willing to contribute?'
-      description: "Let us know if you'd like to help implement or discuss this feature further."
-      options:
-        - label: "Yes, I'd like to help implement this feature."
-          required: false
 
   - type: textarea
     id: additional-context

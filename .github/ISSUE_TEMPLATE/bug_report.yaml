@@ -1,6 +1,6 @@
 name: 'Bug Report'
-description: 'Report a bug or unexpected behavior.'
-title: '[Bug]: '
+description: 'Report a GENEAL bug, not defined by existing categories'
+title: '🐛 [BUG]: '
 labels:
   - bug
 body:
@@ -10,14 +10,6 @@ body:
         Thank you for taking the time to report a bug! Please fill out the following sections with as much detail as possible.
 
         **Tip**: Screenshots, error logs, or even short screen captures can help us pinpoint the issue faster.
-  - type: checkboxes
-    id: existing-issue-check
-    attributes:
-      label: 'Is there an existing issue for this?'
-      description: 'Before creating a new report, please check if someone else has already reported the same issue.'
-      options:
-        - label: "I have searched the existing issues and couldn't find a duplicate."
-          required: true
 
   - type: textarea
     id: current-behavior
