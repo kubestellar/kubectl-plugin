@@ -256,19 +256,19 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(pod.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(pod.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, pod.Name, ready, status, restarts, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, pod.Name, ready, status, restarts, age)
 				}
 			}
@@ -325,19 +325,19 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(svc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(svc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age)
 				}
 			}
@@ -452,7 +452,7 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, ns.Name, status, age, labels)
 			} else {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, ns.Name, status, age)
 			}
 		}
@@ -633,7 +633,7 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age, labels)
 			} else {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age)
 			}
 		}
