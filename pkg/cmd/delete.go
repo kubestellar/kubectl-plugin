@@ -3,8 +3,48 @@ package cmd
 import (
 	"fmt"
 
+	"kubectl-multi/pkg/util"
+
 	"github.com/spf13/cobra"
 )
+
+// Custom help function for delete command
+func deleteHelpFunc(cmd *cobra.Command, args []string) {
+	// Get original kubectl help
+	kubectlHelp, err := util.GetKubectlHelp("delete")
+	if err != nil {
+		// Fallback to default help if kubectl help is not available
+		cmd.Help()
+		return
+	}
+
+	// Multi-cluster plugin information
+	multiClusterInfo := `Delete resources across all managed clusters.
+This command deletes resources from all KubeStellar managed clusters.`
+
+	// Multi-cluster examples
+	multiClusterExamples := `# Delete a deployment from all managed clusters
+kubectl multi delete deployment nginx
+
+# Delete pods with a specific label from all clusters
+kubectl multi delete pods -l app=nginx
+
+# Delete resources from a file across all clusters
+kubectl multi delete -f deployment.yaml
+
+# Delete all pods in all clusters
+kubectl multi delete pods --all
+
+# Delete with force flag across all clusters
+kubectl multi delete pod nginx --force`
+
+	// Multi-cluster usage
+	multiClusterUsage := `kubectl multi delete [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...] [flags]`
+
+	// Format combined help
+	combinedHelp := util.FormatMultiClusterHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
+}
 
 func newDeleteCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -14,6 +54,10 @@ func newDeleteCommand() *cobra.Command {
 			return fmt.Errorf("delete command not yet implemented")
 		},
 	}
+
+	// Set custom help function
+	cmd.SetHelpFunc(deleteHelpFunc)
+
 	return cmd
 }
 

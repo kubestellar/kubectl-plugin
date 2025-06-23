@@ -16,6 +16,53 @@ import (
 	"kubectl-multi/pkg/util"
 )
 
+// Custom help function for get command
+func getHelpFunc(cmd *cobra.Command, args []string) {
+	// Get original kubectl help
+	kubectlHelp, err := util.GetKubectlHelp("get")
+	if err != nil {
+		// Fallback to default help if kubectl help is not available
+		cmd.Help()
+		return
+	}
+
+	// Multi-cluster plugin information
+	multiClusterInfo := `Get resources from all managed clusters and display them in a unified view.
+Supports all resource types that kubectl get supports.
+
+The output includes cluster context information to help identify which
+cluster each resource belongs to.`
+
+	// Multi-cluster examples
+	multiClusterExamples := `# List all pods in all managed clusters
+kubectl multi get pods
+
+# List all nodes in all managed clusters
+kubectl multi get nodes
+
+# List deployments in specific namespace across all clusters
+kubectl multi get deployments -n production
+
+# List all resources in all namespaces across all clusters
+kubectl multi get all -A
+
+# Get pods with labels
+kubectl multi get pods -l app=nginx
+
+# Get specific pod across all clusters
+kubectl multi get pod nginx-pod
+
+# Get services with wide output
+kubectl multi get services -o wide`
+
+	// Multi-cluster usage
+	multiClusterUsage := `kubectl multi get [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...] [flags]`
+
+	// Format combined help
+	combinedHelp := util.FormatMultiClusterHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
+}
+
 func newGetCommand() *cobra.Command {
 	var outputFormat string
 	var selector string
@@ -67,23 +114,8 @@ kubectl multi get services -o wide`,
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "watch for changes to the requested object(s)")
 	cmd.Flags().BoolVar(&watchOnly, "watch-only", false, "watch for changes to the requested object(s), without listing/getting first")
 
-	// Set custom help template to match desired format
-	cmd.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
-
-{{end}}{{if .HasExample}}Examples:
-{{.Example}}{{end}}
-
-{{if .HasAvailableFlags}}Options:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
-
-{{if .HasAvailableSubCommands}}Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}
-
-{{if .HasHelpSubCommands}}Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}
-
-{{if .HasAvailableSubCommands}}Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
-`)
+	// Set custom help function
+	cmd.SetHelpFunc(getHelpFunc)
 
 	return cmd
 }
