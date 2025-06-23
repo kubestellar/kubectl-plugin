@@ -2,7 +2,6 @@ name: 'Cluster Discovery Issue'
 description: 'Report problems with discovering or connecting to KubeStellar managed clusters.'
 title: '🔭[CLUSTER DISCOVERY]: '
 labels:
-  - bug
   - cluster-discovery
 body:
   - type: markdown
@@ -21,9 +20,10 @@ body:
   - type: textarea
     id: kubestellar-setup
     attributes:
-      label: 'KubeStellar Setup'
-      description: 'Describe your KubeStellar setup (ITS cluster, managed clusters, WDS clusters)'
+      label: 'KubeStellar/Kubernetes Setup'
+      description: 'Describe your KubeStellar/Kubernetes setup (ITS cluster, managed clusters, WDS clusters). Run `kubectl config get-contexts` to get the list of clusters.'
       placeholder: |
+        simply paste the output the command if you have a simple setup or:
         - ITS Cluster: its1
         - Managed Clusters: cluster1, cluster2, cluster3
         - WDS Clusters: wds1, wds2
