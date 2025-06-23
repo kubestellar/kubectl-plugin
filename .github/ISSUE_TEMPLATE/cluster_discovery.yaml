@@ -2,7 +2,6 @@ name: 'Cluster Discovery Issue'
 description: 'Report problems with discovering or connecting to KubeStellar managed clusters.'
 title: '🔭[CLUSTER DISCOVERY]: '
 labels:
-  - bug
   - cluster-discovery
 body:
   - type: markdown
