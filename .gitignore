@@ -51,3 +51,9 @@ Thumbs.db
 # Kubernetes config (keep examples but not real configs)
 kubeconfig
 *.kubeconfig 
+
+# Local AI prompt files
+.cursor_prompts/
+
+# Local dev notes
+.dev_notes/

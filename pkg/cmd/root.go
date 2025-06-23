@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"kubectl-multi/pkg/util"
+
 	"github.com/spf13/cobra"
 )
 
@@ -11,6 +14,54 @@ var (
 	namespace     string
 	allNamespaces bool
 )
+
+// Custom help function for root command
+func rootHelpFunc(cmd *cobra.Command, args []string) {
+	// Get original kubectl help
+	kubectlHelp, err := util.GetKubectlRootHelp()
+	if err != nil {
+		// Fallback to default help if kubectl help is not available
+		cmd.Help()
+		return
+	}
+
+	// Multi-cluster plugin information
+	multiClusterInfo := `kubectl-multi provides multi-cluster operations for KubeStellar managed clusters.
+It executes kubectl commands across all managed clusters and presents unified output.
+
+This plugin automatically discovers KubeStellar managed clusters and executes
+kubectl operations across all of them, displaying results with cluster context
+information for easy identification.`
+
+	// Multi-cluster examples
+	multiClusterExamples := `# Get nodes from all managed clusters
+kubectl multi get nodes
+
+# Get pods from all clusters in default namespace
+kubectl multi get pods
+
+# Get pods from all clusters in all namespaces
+kubectl multi get pods -A
+
+# Describe a specific pod across all clusters
+kubectl multi describe pod mypod
+
+# Get services in specific namespace across all clusters
+kubectl multi get services -n kube-system
+
+# Apply a manifest to all clusters
+kubectl multi apply -f deployment.yaml
+
+# Delete resources from all clusters
+kubectl multi delete deployment nginx`
+
+	// Multi-cluster usage
+	multiClusterUsage := `kubectl multi [command] [flags]`
+
+	// Format combined help
+	combinedHelp := util.FormatMultiClusterRootHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
+}
 
 const helpTemplate = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
 
@@ -60,6 +111,10 @@ kubectl multi delete deployment nginx`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() error {
 	rootCmd.SetHelpTemplate(helpTemplate)
+
+	// Set custom help function for root command
+	rootCmd.SetHelpFunc(rootHelpFunc)
+
 	return rootCmd.Execute()
 }
 

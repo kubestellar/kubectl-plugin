@@ -6,7 +6,44 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubectl-multi/pkg/cluster"
+	"kubectl-multi/pkg/util"
 )
+
+// Custom help function for describe command
+func describeHelpFunc(cmd *cobra.Command, args []string) {
+	// Get original kubectl help
+	kubectlHelp, err := util.GetKubectlHelp("describe")
+	if err != nil {
+		// Fallback to default help if kubectl help is not available
+		cmd.Help()
+		return
+	}
+
+	// Multi-cluster plugin information
+	multiClusterInfo := `Show details of a specific resource or group of resources across all managed clusters.
+This command displays detailed information about resources similar to kubectl describe,
+but across all KubeStellar managed clusters.`
+
+	// Multi-cluster examples
+	multiClusterExamples := `# Describe a specific pod across all clusters
+kubectl multi describe pod nginx
+
+# Describe all pods with a specific label across all clusters
+kubectl multi describe pods -l app=nginx
+
+# Describe a service across all clusters
+kubectl multi describe service/my-service
+
+# Describe nodes across all clusters
+kubectl multi describe nodes`
+
+	// Multi-cluster usage
+	multiClusterUsage := `kubectl multi describe [TYPE[.VERSION][.GROUP] [NAME_PREFIX | -l label] | TYPE[.VERSION][.GROUP]/NAME] [flags]`
+
+	// Format combined help
+	combinedHelp := util.FormatMultiClusterHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
+}
 
 func newDescribeCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -35,6 +72,9 @@ kubectl multi describe nodes`,
 			return handleDescribeCommand(args, kubeconfig, remoteCtx, namespace, allNamespaces)
 		},
 	}
+
+	// Set custom help function
+	cmd.SetHelpFunc(describeHelpFunc)
 
 	return cmd
 }
