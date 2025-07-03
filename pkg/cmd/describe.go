@@ -15,8 +15,8 @@ import (
 
 // Custom help function for describe command
 func describeHelpFunc(cmd *cobra.Command, args []string) {
-	// Get original kubectl help
-	kubectlHelp, err := util.GetKubectlHelp("describe")
+	// Get original kubectl help using the new implementation
+	cmdInfo, err := util.GetKubectlCommandInfo("describe")
 	if err != nil {
 		// Fallback to default help if kubectl help is not available
 		cmd.Help()
@@ -44,8 +44,8 @@ kubectl multi describe nodes`
 	// Multi-cluster usage
 	multiClusterUsage := `kubectl multi describe [TYPE[.VERSION][.GROUP] [NAME_PREFIX | -l label] | TYPE[.VERSION][.GROUP]/NAME] [flags]`
 
-	// Format combined help
-	combinedHelp := util.FormatMultiClusterHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	// Format combined help using the new CommandInfo structure
+	combinedHelp := util.FormatMultiClusterHelp(cmdInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage)
 	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
 }
 

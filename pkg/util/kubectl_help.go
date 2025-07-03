@@ -3,67 +3,114 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
+	"os"
 	"strings"
+
+	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/kubectl/pkg/cmd"
 )
 
-// GetKubectlHelp retrieves the original kubectl help output for a given command
-func GetKubectlHelp(command string) (string, error) {
-	// Construct the kubectl command
-	args := []string{command, "--help"}
-
-	// Execute kubectl command
-	cmd := exec.Command("kubectl", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		// If kubectl is not found or fails, return a fallback message
-		return fmt.Sprintf("Original kubectl %s help not available: %v", command, err), nil
-	}
-
-	// Return the help output
-	helpOutput := stdout.String()
-	if helpOutput == "" {
-		helpOutput = stderr.String()
-	}
-
-	return strings.TrimSpace(helpOutput), nil
+// CommandInfo holds information about a kubectl command
+type CommandInfo struct {
+	Description string
+	Examples    string
+	Usage       string
+	Options     string
 }
 
-// GetKubectlRootHelp retrieves the original kubectl root help output
-func GetKubectlRootHelp() (string, error) {
-	// Execute kubectl command
-	cmd := exec.Command("kubectl", "--help")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+// GetKubectlCommandInfo retrieves command information by creating kubectl commands programmatically
+func GetKubectlCommandInfo(command string) (*CommandInfo, error) {
+	// Create kubectl command and extract help information
+	helpOutput, err := executeKubectlHelp(command)
 	if err != nil {
-		// If kubectl is not found or fails, return a fallback message
-		return fmt.Sprintf("Original kubectl help not available: %v", err), nil
+		return nil, fmt.Errorf("failed to get kubectl %s help: %v", command, err)
 	}
 
-	// Return the help output
-	helpOutput := stdout.String()
-	if helpOutput == "" {
-		helpOutput = stderr.String()
-	}
+	// Parse the help output into sections
+	sections := splitHelpSections(helpOutput)
 
-	return strings.TrimSpace(helpOutput), nil
+	return &CommandInfo{
+		Description: strings.TrimSpace(sections["description"]),
+		Examples:    strings.TrimSpace(sections["examples"]),
+		Usage:       strings.TrimSpace(sections["usage"]),
+		Options:     strings.TrimSpace(sections["options"]),
+	}, nil
 }
 
-// FormatMultiClusterHelp combines the original kubectl help with multi-cluster plugin information
-func FormatMultiClusterHelp(originalHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage string) string {
-	if originalHelp == "" {
+// GetKubectlRootInfo retrieves root command information
+func GetKubectlRootInfo() (*CommandInfo, error) {
+	// Create kubectl root command and extract help information
+	helpOutput, err := executeKubectlHelp("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubectl root help: %v", err)
+	}
+
+	// Parse the help output into sections
+	sections := splitHelpSections(helpOutput)
+
+	return &CommandInfo{
+		Description: strings.TrimSpace(sections["description"]),
+		Examples:    strings.TrimSpace(sections["examples"]),
+		Usage:       strings.TrimSpace(sections["usage"]),
+		Options:     strings.TrimSpace(sections["options"]),
+	}, nil
+}
+
+// executeKubectlHelp creates kubectl command objects and extracts help text programmatically
+func executeKubectlHelp(command string) (string, error) {
+	ioStreams := genericiooptions.IOStreams{In: os.Stdin, Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}
+
+	// Create kubectl options
+	kubectlOptions := cmd.KubectlOptions{
+		IOStreams: ioStreams,
+	}
+
+	// Create the kubectl command
+	kubectlCmd := cmd.NewKubectlCommand(kubectlOptions)
+
+	// Find the specific subcommand
+	var targetCmd *cobra.Command
+	if command == "" {
+		targetCmd = kubectlCmd
+	} else {
+		targetCmd = findSubcommand(kubectlCmd, command)
+		if targetCmd == nil {
+			return "", fmt.Errorf("command '%s' not found", command)
+		}
+	}
+
+	// Capture the help output
+	var helpBuffer bytes.Buffer
+	targetCmd.SetOut(&helpBuffer)
+	targetCmd.SetErr(&helpBuffer)
+
+	// Generate help text
+	targetCmd.Help()
+
+	return helpBuffer.String(), nil
+}
+
+// findSubcommand recursively searches for a subcommand by name
+func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
+	if cmd.Name() == name {
+		return cmd
+	}
+
+	for _, subcmd := range cmd.Commands() {
+		if result := findSubcommand(subcmd, name); result != nil {
+			return result
+		}
+	}
+
+	return nil
+}
+
+// FormatMultiClusterHelp combines the kubectl command info with multi-cluster plugin information
+func FormatMultiClusterHelp(cmdInfo *CommandInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage string) string {
+	if cmdInfo == nil {
 		return multiClusterInfo
 	}
-
-	// Split the original help into sections
-	sections := splitHelpSections(originalHelp)
 
 	// Build the combined help output
 	var result strings.Builder
@@ -75,9 +122,9 @@ func FormatMultiClusterHelp(originalHelp, multiClusterInfo, multiClusterExamples
 	}
 
 	// Add original kubectl help sections in order: Description, Examples, Options, Usage
-	if sections["description"] != "" {
+	if cmdInfo.Description != "" {
 		result.WriteString("Original kubectl description:\n")
-		result.WriteString(sections["description"])
+		result.WriteString(cmdInfo.Description)
 		result.WriteString("\n\n")
 	}
 
@@ -88,16 +135,16 @@ func FormatMultiClusterHelp(originalHelp, multiClusterInfo, multiClusterExamples
 		result.WriteString("\n\n")
 	}
 
-	if sections["examples"] != "" {
+	if cmdInfo.Examples != "" {
 		result.WriteString("Original kubectl examples:\n")
-		result.WriteString(sections["examples"])
+		result.WriteString(cmdInfo.Examples)
 		result.WriteString("\n\n")
 	}
 
-	if sections["options"] != "" {
+	if cmdInfo.Options != "" {
 		result.WriteString("Options:\n")
 		// Mark flags that may not be implemented yet
-		markedOptions := markUnimplementedFlags(sections["options"])
+		markedOptions := markUnimplementedFlags(cmdInfo.Options)
 		result.WriteString(markedOptions)
 		result.WriteString("\n\n")
 	}
@@ -109,9 +156,9 @@ func FormatMultiClusterHelp(originalHelp, multiClusterInfo, multiClusterExamples
 		result.WriteString("\n\n")
 	}
 
-	if sections["usage"] != "" {
+	if cmdInfo.Usage != "" {
 		result.WriteString("Original kubectl usage:\n")
-		result.WriteString(sections["usage"])
+		result.WriteString(cmdInfo.Usage)
 		result.WriteString("\n\n")
 	}
 
@@ -119,65 +166,8 @@ func FormatMultiClusterHelp(originalHelp, multiClusterInfo, multiClusterExamples
 }
 
 // FormatMultiClusterRootHelp formats the root command help
-func FormatMultiClusterRootHelp(originalHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage string) string {
-	if originalHelp == "" {
-		return multiClusterInfo
-	}
-
-	// Split the original help into sections
-	sections := splitHelpSections(originalHelp)
-
-	// Build the combined help output
-	var result strings.Builder
-
-	// Add multi-cluster information at the top
-	if multiClusterInfo != "" {
-		result.WriteString(multiClusterInfo)
-		result.WriteString("\n\n")
-	}
-
-	// Add original kubectl help sections in order: Description, Examples, Options, Usage
-	if sections["description"] != "" {
-		result.WriteString("Original kubectl description:\n")
-		result.WriteString(sections["description"])
-		result.WriteString("\n\n")
-	}
-
-	// Add kubectl-multi examples first, then original kubectl examples
-	if multiClusterExamples != "" {
-		result.WriteString("Examples:\n")
-		result.WriteString(multiClusterExamples)
-		result.WriteString("\n\n")
-	}
-
-	if sections["examples"] != "" {
-		result.WriteString("Original kubectl examples:\n")
-		result.WriteString(sections["examples"])
-		result.WriteString("\n\n")
-	}
-
-	if sections["options"] != "" {
-		result.WriteString("Options:\n")
-		// Mark flags that may not be implemented yet
-		markedOptions := markUnimplementedFlags(sections["options"])
-		result.WriteString(markedOptions)
-		result.WriteString("\n\n")
-	}
-
-	// Add kubectl-multi usage first, then original kubectl usage
-	if multiClusterUsage != "" {
-		result.WriteString("Usage:\n")
-		result.WriteString(multiClusterUsage)
-		result.WriteString("\n\n")
-	}
-
-	if sections["usage"] != "" {
-		result.WriteString("Original kubectl usage:\n")
-		result.WriteString(sections["usage"])
-		result.WriteString("\n\n")
-	}
-
-	return strings.TrimSpace(result.String())
+func FormatMultiClusterRootHelp(cmdInfo *CommandInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage string) string {
+	return FormatMultiClusterHelp(cmdInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage)
 }
 
 // markUnimplementedFlags adds a note about flags that may not be implemented yet
@@ -247,4 +237,57 @@ func splitHelpSections(helpOutput string) map[string]string {
 	}
 
 	return sections
+}
+
+// Legacy functions for backward compatibility
+func GetKubectlHelp(command string) (string, error) {
+	cmdInfo, err := GetKubectlCommandInfo(command)
+	if err != nil {
+		return fmt.Sprintf("Original kubectl %s help not available: %v", command, err), nil
+	}
+
+	var result strings.Builder
+	if cmdInfo.Description != "" {
+		result.WriteString(cmdInfo.Description)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Examples != "" {
+		result.WriteString(cmdInfo.Examples)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Options != "" {
+		result.WriteString(cmdInfo.Options)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Usage != "" {
+		result.WriteString(cmdInfo.Usage)
+	}
+
+	return strings.TrimSpace(result.String()), nil
+}
+
+func GetKubectlRootHelp() (string, error) {
+	cmdInfo, err := GetKubectlRootInfo()
+	if err != nil {
+		return fmt.Sprintf("Original kubectl help not available: %v", err), nil
+	}
+
+	var result strings.Builder
+	if cmdInfo.Description != "" {
+		result.WriteString(cmdInfo.Description)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Examples != "" {
+		result.WriteString(cmdInfo.Examples)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Options != "" {
+		result.WriteString(cmdInfo.Options)
+		result.WriteString("\n\n")
+	}
+	if cmdInfo.Usage != "" {
+		result.WriteString(cmdInfo.Usage)
+	}
+
+	return strings.TrimSpace(result.String()), nil
 }

@@ -17,8 +17,8 @@ var (
 
 // Custom help function for root command
 func rootHelpFunc(cmd *cobra.Command, args []string) {
-	// Get original kubectl help
-	kubectlHelp, err := util.GetKubectlRootHelp()
+	// Get original kubectl help using the new implementation
+	cmdInfo, err := util.GetKubectlRootInfo()
 	if err != nil {
 		// Fallback to default help if kubectl help is not available
 		cmd.Help()
@@ -58,8 +58,8 @@ kubectl multi delete deployment nginx`
 	// Multi-cluster usage
 	multiClusterUsage := `kubectl multi [command] [flags]`
 
-	// Format combined help
-	combinedHelp := util.FormatMultiClusterRootHelp(kubectlHelp, multiClusterInfo, multiClusterExamples, multiClusterUsage)
+	// Format combined help using the new CommandInfo structure
+	combinedHelp := util.FormatMultiClusterRootHelp(cmdInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage)
 	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
 }
 
