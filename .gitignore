@@ -20,6 +20,7 @@ go.work
 # Build output
 /bin/
 kubectl-multi
+other_multi_ref/
 
 # IDE files
 .vscode/

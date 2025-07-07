@@ -41,11 +41,12 @@ func DiscoverClusters(kubeconfig, remoteCtx string) ([]ClusterInfo, error) {
 					continue
 				}
 
+				// Use the managed cluster name as the context, not remoteCtx
 				_, _, cs, dyn, disc, restCfg := buildClusterClient(kubeconfig, mcName)
 				if cs != nil { // Only add if we can connect
 					clusters = append(clusters, ClusterInfo{
 						Name:            mcName,
-						Context:         remoteCtx,
+						Context:         mcName, // Use mcName as context, not remoteCtx
 						Client:          cs,
 						DynamicClient:   dyn,
 						DiscoveryClient: disc,
