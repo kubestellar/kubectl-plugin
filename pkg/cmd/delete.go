@@ -127,17 +127,6 @@ func newScaleCommand() *cobra.Command {
 	return cmd
 }
 
-func newRolloutCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "rollout SUBCOMMAND",
-		Short: "Manage the rollout of a resource across managed clusters",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("rollout command not yet implemented")
-		},
-	}
-	return cmd
-}
-
 func newPortForwardCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "port-forward POD [LOCAL_PORT:]REMOTE_PORT",
