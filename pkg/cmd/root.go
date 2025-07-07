@@ -140,6 +140,7 @@ func init() {
 	rootCmd.AddCommand(newRolloutCommand())
 	rootCmd.AddCommand(newPortForwardCommand())
 	rootCmd.AddCommand(newTopCommand())
+	rootCmd.AddCommand(newRunCommand())
 }
 
 // GetGlobalFlags returns the global flags that can be used by subcommands

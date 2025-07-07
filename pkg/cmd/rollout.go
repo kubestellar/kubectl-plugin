@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"kubectl-multi/pkg/cluster"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func newRolloutCommand() *cobra.Command {
@@ -103,43 +103,73 @@ func handleRolloutSubcommand(subcommand string, extraArgs []string, kubeconfig, 
 	if len(clusters) == 0 {
 		return fmt.Errorf("no clusters discovered")
 	}
-	maxProc := 5
-	sem := make(chan struct{}, maxProc)
-	results := make(chan struct {
-		Cluster string
-		Output  string
-		Err     error
-	}, len(clusters))
-	for _, c := range clusters {
-		sem <- struct{}{}
-		go func(clusterInfo cluster.ClusterInfo) {
-			defer func() { <-sem }()
-			args := []string{"rollout", subcommand}
-			if len(extraArgs) > 0 {
-				args = append(args, extraArgs...)
-			}
-			args = append(args, "--context", clusterInfo.Name)
-			cmdOutput, err := runKubectl(args, kubeconfig)
-			results <- struct {
-				Cluster string
-				Output  string
-				Err     error
-			}{Cluster: clusterInfo.Name, Output: cmdOutput, Err: err}
-		}(c)
+
+	// Find current context from kubeconfig
+	currentContext := ""
+	{
+		loading := clientcmd.NewDefaultClientConfigLoadingRules()
+		if kubeconfig != "" {
+			loading.ExplicitPath = kubeconfig
+		}
+		cfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, &clientcmd.ConfigOverrides{})
+		rawCfg, err := cfg.RawConfig()
+		if err == nil {
+			currentContext = rawCfg.CurrentContext
+		}
 	}
-	for i := 0; i < len(clusters); i++ {
-		res := <-results
-		fmt.Printf("=== Cluster: %s ===\n", res.Cluster)
-		if res.Err != nil {
-			if strings.Contains(res.Cluster, "its1") {
-				fmt.Printf("Cannot perform this operation on ITS (control) cluster: %s\n", res.Cluster)
-			} else {
-				fmt.Printf("Error: %v\n", res.Err)
-			}
+
+	// Identify ITS (control) cluster context
+	itsContext := remoteCtx
+
+	// Build maps for quick lookup
+	contextToCluster := make(map[string]cluster.ClusterInfo)
+	for _, c := range clusters {
+		contextToCluster[c.Context] = c
+	}
+
+	// 1. Run for current context (if present)
+	if cinfo, ok := contextToCluster[currentContext]; ok {
+		args := []string{"rollout", subcommand}
+		if len(extraArgs) > 0 {
+			args = append(args, extraArgs...)
+		}
+		args = append(args, "--context", cinfo.Context)
+		cmdOutput, err := runKubectl(args, kubeconfig)
+		fmt.Printf("=== Cluster: %s ===\n", cinfo.Context)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
 		} else {
-			fmt.Print(res.Output)
+			fmt.Print(cmdOutput)
 		}
 		fmt.Println()
 	}
+
+	// 2. Run for KubeStellar clusters (excluding ITS and current)
+	for _, c := range clusters {
+		if c.Context == currentContext || c.Context == itsContext {
+			continue
+		}
+		args := []string{"rollout", subcommand}
+		if len(extraArgs) > 0 {
+			args = append(args, extraArgs...)
+		}
+		args = append(args, "--context", c.Context)
+		cmdOutput, err := runKubectl(args, kubeconfig)
+		fmt.Printf("=== Cluster: %s ===\n", c.Context)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		} else {
+			fmt.Print(cmdOutput)
+		}
+		fmt.Println()
+	}
+
+	// 3. Print warning for ITS (control) cluster
+	if cinfo, ok := contextToCluster[itsContext]; ok {
+		fmt.Printf("=== Cluster: %s ===\n", cinfo.Context)
+		fmt.Printf("Cannot perform this operation on ITS (control) cluster: %s\n", cinfo.Context)
+		fmt.Println()
+	}
+
 	return nil
 }
