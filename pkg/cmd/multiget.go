@@ -55,8 +55,13 @@ func newMultiGetCommand() *cobra.Command {
 				return fmt.Errorf("resource type must be specified")
 			}
 
-			kubeconfig, remoteCtx, _, namespace, allNamespaces := GetGlobalFlags()
-			clusters, err := discoverITSClustersFromCore(kubeconfig, remoteCtx)
+			kubeconfig, _, _, namespace, allNamespaces := GetGlobalFlags()
+			// Auto-discover the KubeFlex hosting cluster
+			coreContext, err := discoverKubeFlexHostingCluster(kubeconfig)
+			if err != nil {
+				return fmt.Errorf("failed to discover KubeFlex hosting cluster: %v", err)
+			}
+			clusters, err := discoverITSClustersFromCore(kubeconfig, coreContext)
 			if err != nil {
 				return fmt.Errorf("failed to discover ITS clusters: %v", err)
 			}
@@ -102,7 +107,7 @@ func discoverITSClustersFromCore(coreKubeconfig, coreContext string) ([]MultiGet
 
 	// List ControlPlane CRDs
 	gvr := schema.GroupVersionResource{
-		Group:    "control.kubestellar.io",
+		Group:    "tenancy.kflex.kubestellar.org",
 		Version:  "v1alpha1",
 		Resource: "controlplanes",
 	}
@@ -113,9 +118,9 @@ func discoverITSClustersFromCore(coreKubeconfig, coreContext string) ([]MultiGet
 
 	for _, cp := range cps.Items {
 		name := cp.GetName()
-		// Only consider ITS clusters (type: external, vcluster, etc. - filter as needed)
+		// Only process ITS clusters (vcluster type)
 		typeVal, found, _ := unstructured.NestedString(cp.Object, "spec", "type")
-		if !found || typeVal == "host" {
+		if !found || typeVal != "vcluster" {
 			continue
 		}
 		// Get secretRef
@@ -148,7 +153,8 @@ func discoverITSClustersFromCore(coreKubeconfig, coreContext string) ([]MultiGet
 			continue
 		}
 		tmpFile.Close()
-		// Build client for ITS
+
+		// Build client for ITS vcluster
 		itsCfg, err := clientcmd.BuildConfigFromFlags("", tmpFile.Name())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to build rest config for ITS %s: %v\n", name, err)
@@ -164,6 +170,8 @@ func discoverITSClustersFromCore(coreKubeconfig, coreContext string) ([]MultiGet
 			fmt.Fprintf(os.Stderr, "Warning: failed to build dynamic client for ITS %s: %v\n", name, err)
 			continue
 		}
+
+		// Add the ITS cluster itself to the results
 		clusters = append(clusters, MultiGetClusterInfo{
 			Name:           name,
 			KubeconfigPath: tmpFile.Name(),
@@ -171,8 +179,172 @@ func discoverITSClustersFromCore(coreKubeconfig, coreContext string) ([]MultiGet
 			DynamicClient:  itsDyn,
 			RestConfig:     itsCfg,
 		})
+
+		// Discover ManagedClusters from the ITS vcluster
+		mcGVR := schema.GroupVersionResource{
+			Group:    "cluster.open-cluster-management.io",
+			Version:  "v1",
+			Resource: "managedclusters",
+		}
+		mcs, err := itsDyn.Resource(mcGVR).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to list managed clusters from ITS %s: %v\n", name, err)
+			continue
+		}
+
+		// For each ManagedCluster, get its kubeconfig and add to clusters list
+		for _, mc := range mcs.Items {
+			mcName := mc.GetName()
+
+			// Get the kubeconfig from the ManagedCluster spec
+			clientConfigs, found, _ := unstructured.NestedSlice(mc.Object, "spec", "managedClusterClientConfigs")
+			if !found || len(clientConfigs) == 0 {
+				fmt.Fprintf(os.Stderr, "Warning: no client configs found for managed cluster %s\n", mcName)
+				continue
+			}
+
+			// Use the first client config
+			clientConfig, ok := clientConfigs[0].(map[string]interface{})
+			if !ok {
+				fmt.Fprintf(os.Stderr, "Warning: invalid client config for managed cluster %s\n", mcName)
+				continue
+			}
+
+			url, found, _ := unstructured.NestedString(clientConfig, "url")
+			caBundle, found2, _ := unstructured.NestedString(clientConfig, "caBundle")
+			if !found || !found2 {
+				fmt.Fprintf(os.Stderr, "Warning: missing url or caBundle for managed cluster %s\n", mcName)
+				continue
+			}
+
+			// Create a kubeconfig from the ManagedCluster spec
+			kubeconfig := fmt.Sprintf(`apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: %s
+    server: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: %s
+  name: %s
+current-context: %s
+kind: Config
+users:
+- name: %s
+  user:
+    token: ""  # We'll use in-cluster config or need to get token from somewhere
+`, caBundle, url, mcName, mcName, mcName, mcName, mcName, mcName)
+
+			// Write managed cluster kubeconfig to temp file
+			mcTmpFile, err := os.CreateTemp("", fmt.Sprintf("%s-kubeconfig-*.yaml", mcName))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to create temp kubeconfig for managed cluster %s: %v\n", mcName, err)
+				continue
+			}
+			if _, err := mcTmpFile.Write([]byte(kubeconfig)); err != nil {
+				mcTmpFile.Close()
+				fmt.Fprintf(os.Stderr, "Warning: failed to write kubeconfig for managed cluster %s: %v\n", mcName, err)
+				continue
+			}
+			mcTmpFile.Close()
+
+			// Use the existing context-based approach since we have the contexts
+			loading := clientcmd.NewDefaultClientConfigLoadingRules()
+			overrides := &clientcmd.ConfigOverrides{
+				CurrentContext: mcName,
+			}
+			cfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides)
+			mcCfg, err := cfg.ClientConfig()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to build rest config for managed cluster %s: %v\n", mcName, err)
+				continue
+			}
+
+			mcClient, err := kubernetes.NewForConfig(mcCfg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to build typed client for managed cluster %s: %v\n", mcName, err)
+				continue
+			}
+			mcDyn, err := dynamic.NewForConfig(mcCfg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to build dynamic client for managed cluster %s: %v\n", mcName, err)
+				continue
+			}
+
+			clusters = append(clusters, MultiGetClusterInfo{
+				Name:           mcName,
+				KubeconfigPath: mcTmpFile.Name(),
+				Client:         mcClient,
+				DynamicClient:  mcDyn,
+				RestConfig:     mcCfg,
+			})
+		}
 	}
 	return clusters, nil
+}
+
+// discoverKubeFlexHostingCluster finds the cluster that has KubeFlex installed
+func discoverKubeFlexHostingCluster(kubeconfig string) (string, error) {
+	// Try common names first (most likely candidates)
+	commonNames := []string{"kind-kubeflex", "kubeflex", "ks-core", "kubestellar-core"}
+
+	for _, name := range commonNames {
+		if hasKubeFlexResources(kubeconfig, name) {
+			return name, nil
+		}
+	}
+
+	// If not found, scan all contexts
+	loading := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfig != "" {
+		loading.ExplicitPath = kubeconfig
+	}
+	cfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, &clientcmd.ConfigOverrides{})
+	rawCfg, err := cfg.RawConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load kubeconfig: %v", err)
+	}
+
+	for contextName := range rawCfg.Contexts {
+		if hasKubeFlexResources(kubeconfig, contextName) {
+			return contextName, nil
+		}
+	}
+
+	return "", fmt.Errorf("no KubeFlex hosting cluster found. Please ensure KubeFlex is installed in one of your clusters")
+}
+
+// hasKubeFlexResources checks if a context has the ControlPlane CRD
+func hasKubeFlexResources(kubeconfig, contextName string) bool {
+	// Build config for this context
+	loading := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfig != "" {
+		loading.ExplicitPath = kubeconfig
+	}
+	overrides := &clientcmd.ConfigOverrides{
+		CurrentContext: contextName,
+	}
+	cfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides)
+	restCfg, err := cfg.ClientConfig()
+	if err != nil {
+		return false
+	}
+
+	// Check for ControlPlane CRD - this is the definitive indicator
+	dyn, err := dynamic.NewForConfig(restCfg)
+	if err != nil {
+		return false
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "tenancy.kflex.kubestellar.org",
+		Version:  "v1alpha1",
+		Resource: "controlplanes",
+	}
+	_, err = dyn.Resource(gvr).List(context.Background(), metav1.ListOptions{})
+	return err == nil
 }
 
 // handleMultiGetCommand runs the get logic across all discovered ITS clusters
