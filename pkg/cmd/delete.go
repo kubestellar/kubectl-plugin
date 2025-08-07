@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"kubectl-multi/pkg/cluster"
 	"kubectl-multi/pkg/util"
 
 	"github.com/spf13/cobra"
@@ -47,13 +48,37 @@ kubectl multi delete pod nginx --force`
 }
 
 func newDeleteCommand() *cobra.Command {
+	var filename string
+	var recursive bool
+	var selector string
+	var all bool
+	var force bool
+	var grace int
+	var timeout string
+	var wait bool
+
 	cmd := &cobra.Command{
 		Use:   "delete [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...]",
 		Short: "Delete resources across all managed clusters",
+		Long: `Delete resources across all managed clusters.
+This command deletes resources from all KubeStellar managed clusters.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("delete command not yet implemented")
+			if filename == "" && len(args) == 0 {
+				return fmt.Errorf("resource type and name, or filename must be specified")
+			}
+			kubeconfig, remoteCtx, _, namespace, allNamespaces := GetGlobalFlags()
+			return handleDeleteCommand(args, filename, recursive, selector, all, force, grace, timeout, wait, kubeconfig, remoteCtx, namespace, allNamespaces)
 		},
 	}
+
+	cmd.Flags().StringVarP(&filename, "filename", "f", "", "Filename, directory, or URL to files to delete")
+	cmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "Process the directory used in -f, --filename recursively")
+	cmd.Flags().StringVarP(&selector, "selector", "l", "", "Selector (label query) to filter on")
+	cmd.Flags().BoolVar(&all, "all", false, "Delete all resources in the namespace of the specified resource types")
+	cmd.Flags().BoolVar(&force, "force", false, "If true, immediately remove resources from API and bypass graceful deletion")
+	cmd.Flags().IntVar(&grace, "grace-period", -1, "Period of time in seconds given to the resource to terminate gracefully")
+	cmd.Flags().StringVar(&timeout, "timeout", "0s", "The length of time to wait before giving up on a delete")
+	cmd.Flags().BoolVar(&wait, "wait", true, "If true, wait for resources to be gone before returning")
 
 	// Set custom help function
 	cmd.SetHelpFunc(deleteHelpFunc)
@@ -61,15 +86,76 @@ func newDeleteCommand() *cobra.Command {
 	return cmd
 }
 
-func newLogsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "logs [-f] [-p] POD [-c CONTAINER]",
-		Short: "Print the logs for a container in a pod across managed clusters",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("logs command not yet implemented")
-		},
+func handleDeleteCommand(args []string, filename string, recursive bool, selector string, all, force bool, grace int, timeout string, wait bool, kubeconfig, remoteCtx, namespace string, allNamespaces bool) error {
+	clusters, err := cluster.DiscoverClusters(kubeconfig, remoteCtx)
+	if err != nil {
+		return fmt.Errorf("failed to discover clusters: %v", err)
 	}
-	return cmd
+
+	if len(clusters) == 0 {
+		return fmt.Errorf("no clusters discovered")
+	}
+
+	// Build kubectl args
+	cmdArgs := []string{"delete"}
+
+	// Add filename or resource args
+	if filename != "" {
+		cmdArgs = append(cmdArgs, "-f", filename)
+		if recursive {
+			cmdArgs = append(cmdArgs, "-R")
+		}
+	} else {
+		cmdArgs = append(cmdArgs, args...)
+	}
+
+	// Add flags
+	if selector != "" {
+		cmdArgs = append(cmdArgs, "-l", selector)
+	}
+	if all {
+		cmdArgs = append(cmdArgs, "--all")
+	}
+	if force {
+		cmdArgs = append(cmdArgs, "--force")
+	}
+	if grace >= 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--grace-period=%d", grace))
+	}
+	if timeout != "0s" {
+		cmdArgs = append(cmdArgs, "--timeout="+timeout)
+	}
+	if !wait {
+		cmdArgs = append(cmdArgs, "--wait=false")
+	}
+	if namespace != "" {
+		cmdArgs = append(cmdArgs, "-n", namespace)
+	}
+	if allNamespaces {
+		cmdArgs = append(cmdArgs, "-A")
+	}
+
+	// Execute on all clusters
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		fmt.Printf("=== Cluster: %s ===\n", clusterInfo.Name)
+
+		clusterArgs := append([]string{}, cmdArgs...)
+		clusterArgs = append(clusterArgs, "--context", clusterInfo.Context)
+
+		output, err := runKubectl(clusterArgs, kubeconfig)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		} else {
+			fmt.Print(output)
+		}
+		fmt.Println()
+	}
+
+	return nil
 }
 
 func newExecCommand() *cobra.Command {
@@ -78,17 +164,6 @@ func newExecCommand() *cobra.Command {
 		Short: "Execute a command in a container across managed clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("exec command not yet implemented")
-		},
-	}
-	return cmd
-}
-
-func newCreateCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create -f FILENAME",
-		Short: "Create a resource from a file or from stdin across managed clusters",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("create command not yet implemented")
 		},
 	}
 	return cmd

@@ -28,6 +28,10 @@ kubectl-multi is a kubectl plugin written in Go that automatically discovers Kub
 - **KubeStellar integration**: Automatically discovers managed clusters via KubeStellar APIs
 - **WDS filtering**: Automatically excludes Workload Description Space clusters
 - **Familiar syntax**: Uses the same command structure as kubectl
+- **Binding Policy Guidance**: Encourages label-based binding policies for better multi-cluster management
+- **Multi-cluster logs**: Stream logs from containers across all clusters simultaneously
+- **Selective deployment**: Deploy to specific clusters or clusters matching label selectors
+- **Binding Policy creation**: Generate KubeStellar BindingPolicy YAML for declarative multi-cluster management
 
 ## Tech Stack
 
@@ -300,6 +304,50 @@ kubectl multi get pods -l app=nginx -A
 
 # Show labels
 kubectl multi get pods --show-labels -n kube-system
+
+# Create resources across all clusters (use with caution)
+kubectl multi create deployment nginx --image=nginx
+
+# Apply resources from file
+kubectl multi apply -f deployment.yaml
+
+# Delete resources across all clusters
+kubectl multi delete deployment nginx
+
+# Get logs from a pod across all clusters
+kubectl multi logs nginx
+
+# Follow logs from all clusters simultaneously
+kubectl multi logs -f nginx
+
+# Get logs with container selection
+kubectl multi logs nginx-app -c nginx
+
+# Deploy to specific clusters only
+kubectl multi deploy-to --clusters=cluster1,cluster2 -f deployment.yaml
+
+# Deploy with global image override
+kubectl multi deploy-to --clusters=cluster1,cluster2 --image=nginx:latest deployment web-app
+
+# Deploy with per-cluster image overrides
+kubectl multi deploy-to --clusters=cluster1,cluster2 \
+  --cluster-images="cluster1=nginx:1.20" \
+  --cluster-images="cluster2=nginx:1.21" \
+  deployment versioned-app
+
+# Create a KubeStellar binding policy
+kubectl multi create-binding-policy nginx-policy \
+  --cluster-labels="env=prod,location=edge" \
+  --resource-labels="app=nginx,tier=frontend"
+
+# List available clusters
+kubectl multi deploy-to --list-clusters
+
+# Show binding policy examples
+kubectl multi demo-binding-policy
+
+# Show cluster labeling examples
+kubectl multi label-cluster-examples
 ```
 
 ### Global Flags
@@ -309,6 +357,34 @@ kubectl multi get pods --show-labels -n kube-system
 - `--all-clusters`: Operate on all managed clusters (default: true)
 - `-n, --namespace string`: Target namespace
 - `-A, --all-namespaces`: List resources across all namespaces
+
+### KubeStellar Binding Policies (Recommended Approach)
+
+For better multi-cluster management, KubeStellar recommends using binding policies instead of direct resource creation:
+
+```yaml
+# Example: Create a binding policy for nginx deployment
+apiVersion: control.kubestellar.io/v1alpha1
+kind: BindingPolicy
+metadata:
+  name: nginx-policy
+spec:
+  clusterSelectors:
+  - matchLabels:
+      location: edge      # Select clusters by label
+      environment: prod
+  downsync:
+  - objectSelectors:
+    - matchLabels:
+        app: nginx       # Select resources by label
+        tier: frontend
+```
+
+Benefits of binding policies:
+- **Declarative**: Define once, apply everywhere automatically
+- **Selective**: Target specific clusters using labels
+- **Dynamic**: Automatically applies to new clusters matching criteria
+- **Manageable**: Update policies to change deployment patterns
 
 ## Code Organization
 
@@ -555,9 +631,13 @@ kubectl-multi/
 │   ├── cmd/               # Command implementations
 │   │   ├── root.go        # Root command & CLI setup
 │   │   ├── get.go         # Get command (fully implemented)
-│   │   ├── describe.go    # Describe command (basic)
-│   │   ├── apply.go       # Apply command (placeholder)
-│   │   └── delete.go      # Other commands (placeholders)
+│   │   ├── describe.go    # Describe command
+│   │   ├── apply.go       # Apply command with binding policy guidance
+│   │   ├── delete.go      # Delete command
+│   │   ├── create.go      # Create command with binding policy warnings
+│   │   ├── logs.go        # Logs command with multi-cluster streaming
+│   │   ├── binding_policy.go # KubeStellar BindingPolicy creation helper
+│   │   └── deploy_to.go   # Selective deployment to specific clusters
 │   ├── cluster/           # Cluster discovery & management
 │   │   └── discovery.go   # KubeStellar cluster discovery
 │   └── util/              # Utility functions
@@ -568,30 +648,96 @@ kubectl-multi/
 
 ### Adding New Commands
 
-To add a new kubectl command (e.g., `logs`):
+To add a new kubectl command:
 
-1. **Create command file**: `pkg/cmd/logs.go`
-```go
-func newLogsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "logs [-f] [-p] POD [-c CONTAINER]",
-		Short: "Print logs for a container in a pod across managed clusters",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return handleLogsCommand(args, ...)
-		},
-	}
-	return cmd
-}
-```
-
-2. **Register in root command**: `pkg/cmd/root.go`
-```go
-func init() {
-	rootCmd.AddCommand(newLogsCommand())
-}
-```
-
+1. **Create command file**: e.g., `pkg/cmd/newcommand.go`
+2. **Register in root command**: Add to `init()` in `pkg/cmd/root.go`
 3. **Implement handler**: Handle multi-cluster logic
+4. **Add help function**: Provide multi-cluster specific help
+5. **Update README**: Document the new command
+
+### Command Implementation Guidelines
+
+#### Create Command
+The `create` command includes warnings about using binding policies:
+- Shows warnings when creating resources directly
+- Provides examples of using binding policies instead
+- Supports all standard kubectl create subcommands
+
+#### Logs Command  
+The `logs` command supports:
+- Sequential log retrieval for non-follow mode
+- Concurrent streaming with cluster prefixes for follow mode
+- All standard kubectl logs flags (tail, since, timestamps, etc.)
+
+#### Delete Command
+The `delete` command provides:
+- Support for file-based and resource-based deletion
+- Label selectors and --all flag support
+- Graceful error handling across clusters
+
+#### Deploy-To Command
+The `deploy-to` command offers selective deployment:
+- Deploy to specific clusters by name
+- Target clusters using label selectors
+- List available clusters and their status
+- Dry-run capability to preview deployments
+
+#### Binding Policy Commands
+KubeStellar BindingPolicy creation helpers:
+- `create-binding-policy`: Generate BindingPolicy YAML with cluster and resource selectors
+- `demo-binding-policy`: Show common BindingPolicy examples
+- `label-cluster-examples`: Display cluster labeling patterns
+
+#### Advanced Multi-Cluster Features
+
+**Image Management Across Clusters:**
+```bash
+# Deploy same image to all specified clusters
+kubectl multi deploy-to --clusters=prod-east,prod-west --image=app:v2.0 deployment myapp
+
+# Deploy different image versions per cluster
+kubectl multi deploy-to --clusters=staging,prod \
+  --cluster-images="staging=app:v2.0-beta" \
+  --cluster-images="prod=app:v1.5" \
+  deployment myapp
+
+# Use with existing deployment files
+kubectl multi deploy-to --clusters=cluster1,cluster2 \
+  --image=nginx:alpine \
+  -f deployment.yaml
+```
+
+**Selective Operations:**
+```bash
+# Apply configurations to specific clusters only
+kubectl multi deploy-to --clusters=cluster1,cluster2 -f configmap.yaml
+
+# Get logs from specific clusters
+kubectl multi deploy-to --clusters=production --dry-run logs -l app=nginx
+
+# Delete resources from targeted clusters
+kubectl multi deploy-to --clusters=staging delete deployment test-app
+```
+
+**KubeStellar Workflow Integration:**
+```bash
+# 1. Generate binding policy with proper selectors
+kubectl multi create-binding-policy production-nginx \
+  --cluster-labels="env=production,region=us-east" \
+  --resource-labels="app=nginx,version=stable"
+
+# 2. Apply the generated policy
+kubectl apply -f nginx-binding-policy.yaml
+
+# 3. Label your clusters
+kubectl label managedcluster prod-east-1 env=production region=us-east
+kubectl label managedcluster prod-west-1 env=production region=us-west
+
+# 4. Deploy with proper labels (will be automatically distributed)
+kubectl label deployment nginx app=nginx version=stable
+kubectl apply -f nginx-deployment.yaml
+```
 
 ### Testing Strategy
 

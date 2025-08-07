@@ -141,6 +141,10 @@ func init() {
 	rootCmd.AddCommand(newPortForwardCommand())
 	rootCmd.AddCommand(newTopCommand())
 	rootCmd.AddCommand(newRunCommand())
+	rootCmd.AddCommand(newCreateBindingPolicyCommand())
+	rootCmd.AddCommand(newDemoBindingPolicyCommand())
+	rootCmd.AddCommand(newDeployToCommand())
+	rootCmd.AddCommand(newClusterLabelingCommand())
 }
 
 // GetGlobalFlags returns the global flags that can be used by subcommands
