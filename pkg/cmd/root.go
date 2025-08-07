@@ -141,6 +141,7 @@ func init() {
 	rootCmd.AddCommand(newPortForwardCommand())
 	rootCmd.AddCommand(newTopCommand())
 	rootCmd.AddCommand(newRunCommand())
+	rootCmd.AddCommand(newMultiGetCommand()) // Register multiget
 }
 
 // GetGlobalFlags returns the global flags that can be used by subcommands
