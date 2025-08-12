@@ -53,7 +53,11 @@ kubectl multi get pods -l app=nginx
 kubectl multi get pod nginx-pod
 
 # Get services with wide output
-kubectl multi get services -o wide`
+kubectl multi get services -o wide
+
+#get all job
+kubectl multi get jobs
+`
 
 	// Multi-cluster usage
 	multiClusterUsage := `kubectl multi get [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...] [flags]`
@@ -142,6 +146,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 
 	// Handle different resource types
 	switch strings.ToLower(resourceType) {
+	case "jobs", "job":
+		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
 		return handleNodesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "pods", "pod", "po":
@@ -165,6 +171,91 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	}
 }
 
+func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	// Print header only once at the top
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		jobs, err := clusterInfo.Client.BatchV1().Jobs(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list jobs in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, job := range jobs.Items {
+			if resourceName != "" && job.Name != resourceName {
+				continue
+			}
+
+			// Calculate completions
+			var completions string
+			if job.Spec.Completions != nil {
+				completions = fmt.Sprintf("%d/%d", job.Status.Succeeded, *job.Spec.Completions)
+			} else {
+				completions = fmt.Sprintf("%d/1", job.Status.Succeeded)
+			}
+
+			// Calculate duration
+			var jobDuration string
+			if job.Status.StartTime != nil {
+				if job.Status.CompletionTime != nil {
+					jobDuration = duration.HumanDuration(job.Status.CompletionTime.Sub(job.Status.StartTime.Time))
+				} else {
+					jobDuration = duration.HumanDuration(time.Since(job.Status.StartTime.Time))
+				}
+			} else {
+				jobDuration = "<unknown>"
+			}
+
+			// Calculate age
+			age := duration.HumanDuration(time.Since(job.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(job.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, job.Namespace, job.Name, completions, jobDuration, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, job.Namespace, job.Name, completions, jobDuration, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(job.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, job.Name, completions, jobDuration, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, job.Name, completions, jobDuration, age)
+				}
+			}
+		}
+	}
+	return nil
+}
 func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
 	// Print header only once at the top
 	if showLabels {
