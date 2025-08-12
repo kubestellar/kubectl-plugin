@@ -146,8 +146,11 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 
 	// Handle different resource types
 	switch strings.ToLower(resourceType) {
+
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "all":
+		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
 		return handleNodesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "pods", "pod", "po":
@@ -254,6 +257,27 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			}
 		}
 	}
+
+func handleAllGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	fmt.Println("==> Pods")
+	if err := handlePodsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Services")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleServicesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Deployments")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
 	return nil
 }
 func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
