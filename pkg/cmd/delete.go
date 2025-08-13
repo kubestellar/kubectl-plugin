@@ -61,17 +61,6 @@ func newDeleteCommand() *cobra.Command {
 	return cmd
 }
 
-func newLogsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "logs [-f] [-p] POD [-c CONTAINER]",
-		Short: "Print the logs for a container in a pod across managed clusters",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("logs command not yet implemented")
-		},
-	}
-	return cmd
-}
-
 func newExecCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exec POD [-c CONTAINER] -- COMMAND [args...]",
