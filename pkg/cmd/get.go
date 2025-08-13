@@ -257,6 +257,8 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			}
 		}
 	}
+	return nil
+}
 
 func handleAllGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
 	fmt.Println("==> Pods")
