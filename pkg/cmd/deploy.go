@@ -10,11 +10,9 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-// DeployOptions holds the options for the deploy command
 type DeployOptions struct {
 	genericclioptions.IOStreams
 
-	// Core configuration
 	ReleaseName string
 	Namespace   string
 	Version     string
@@ -38,12 +36,9 @@ type DeployOptions struct {
 	DryRun      bool
 	Wait        bool
 	Timeout     string
-
-	// Verbosity
-	Verbosity int
+	Verbosity   int
 }
 
-// NewDeployOptions creates a new DeployOptions instance
 func NewDeployOptions(streams genericclioptions.IOStreams) *DeployOptions {
 	return &DeployOptions{
 		IOStreams:         streams,
@@ -65,7 +60,6 @@ func NewDeployOptions(streams genericclioptions.IOStreams) *DeployOptions {
 	}
 }
 
-// NewDeployCmd creates the deploy command
 func NewDeployCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewDeployOptions(streams)
 
@@ -138,7 +132,6 @@ Examples:
 	return cmd
 }
 
-// Validate validates the deploy options
 func (o *DeployOptions) Validate() error {
 	// Check if helm is available
 	if _, err := exec.LookPath("helm"); err != nil {
@@ -158,7 +151,6 @@ func (o *DeployOptions) Validate() error {
 	return nil
 }
 
-// Run executes the deploy command
 func (o *DeployOptions) Run(ctx context.Context) error {
 	fmt.Fprintf(o.Out, "Deploying KubeStellar core components...\n")
 
@@ -168,7 +160,6 @@ func (o *DeployOptions) Run(ctx context.Context) error {
 		fmt.Fprintf(o.Out, "Auto-setting host-container to: %s\n", o.HostContainer)
 	}
 
-	// Build helm command
 	args := o.buildHelmArgs()
 
 	if o.DryRun {
@@ -176,14 +167,12 @@ func (o *DeployOptions) Run(ctx context.Context) error {
 		return nil
 	}
 
-	// Update helm dependencies if using local chart
 	if o.ChartPath != "" {
 		if err := o.updateHelmDependencies(ctx); err != nil {
 			return fmt.Errorf("failed to update helm dependencies: %w", err)
 		}
 	}
 
-	// Execute helm command
 	cmd := exec.CommandContext(ctx, "helm", args...)
 	cmd.Stdout = o.Out
 	cmd.Stderr = o.ErrOut
@@ -197,13 +186,11 @@ func (o *DeployOptions) Run(ctx context.Context) error {
 
 	fmt.Fprintf(o.Out, "\n✅ KubeStellar core deployment completed successfully!\n")
 
-	// Print post-installation instructions
 	o.printPostInstallInstructions()
 
 	return nil
 }
 
-// buildHelmArgs builds the helm command arguments
 func (o *DeployOptions) buildHelmArgs() []string {
 	args := []string{"upgrade", "--install"}
 
@@ -221,12 +208,10 @@ func (o *DeployOptions) buildHelmArgs() []string {
 		}
 	}
 
-	// Namespace
 	if o.Namespace != "default" {
 		args = append(args, "--namespace", o.Namespace, "--create-namespace")
 	}
 
-	// Wait and timeout only if needed
 	if o.Wait && len(o.ITSes) == 0 && len(o.WDSes) == 0 {
 		args = append(args, "--wait")
 		if o.Timeout != "" {
@@ -234,13 +219,11 @@ func (o *DeployOptions) buildHelmArgs() []string {
 		}
 	}
 
-	// Build values - ONLY non-defaults
 	values := o.buildHelmValues()
 	for key, value := range values {
 		args = append(args, "--set", fmt.Sprintf("%s=%s", key, value))
 	}
 
-	// Build JSON values for arrays
 	jsonValues := o.buildHelmJSONValues()
 	for key, value := range jsonValues {
 		args = append(args, "--set-json", fmt.Sprintf("%s=%s", key, value))
@@ -249,12 +232,8 @@ func (o *DeployOptions) buildHelmArgs() []string {
 	return args
 }
 
-// buildHelmValues builds the helm values map
 func (o *DeployOptions) buildHelmValues() map[string]string {
 	values := make(map[string]string)
-
-	// For basic usage with default cluster name "kubeflex", don't add any extra flags
-	// Only add values when explicitly different from expected defaults
 
 	if !o.InstallKubeFlex {
 		values["kubeflex-operator.install"] = "false"
@@ -276,8 +255,6 @@ func (o *DeployOptions) buildHelmValues() map[string]string {
 		values["kubeflex-operator.externalPort"] = fmt.Sprintf("%d", o.ExternalPort)
 	}
 
-	// For kubeflex cluster, the chart expects kubeflex-control-plane as default
-	// So only set if it's truly different
 	if o.ClusterName != "kubeflex" && o.HostContainer == o.ClusterName+"-control-plane" {
 		values["kubeflex-operator.hostContainer"] = o.HostContainer
 	} else if o.HostContainer != "kubeflex-control-plane" && o.HostContainer != o.ClusterName+"-control-plane" {
@@ -295,7 +272,6 @@ func (o *DeployOptions) buildHelmValues() map[string]string {
 	return values
 }
 
-// buildHelmJSONValues builds JSON values for complex structures
 func (o *DeployOptions) buildHelmJSONValues() map[string]string {
 	jsonValues := make(map[string]string)
 
@@ -313,7 +289,6 @@ func (o *DeployOptions) buildHelmJSONValues() map[string]string {
 		jsonValues["ITSes"] = itsesJSON.String()
 	}
 
-	// Build WDSes JSON with ITSName
 	if len(o.WDSes) > 0 {
 		var wdsesJSON strings.Builder
 		wdsesJSON.WriteString("[")
@@ -321,10 +296,9 @@ func (o *DeployOptions) buildHelmJSONValues() map[string]string {
 			if i > 0 {
 				wdsesJSON.WriteString(",")
 			}
-			// Auto-assign ITSName if only one ITS exists or use first ITS
 			itsName := ""
 			if len(o.ITSes) > 0 {
-				itsName = o.ITSes[0] // Use first ITS by default
+				itsName = o.ITSes[0]
 			}
 			if itsName != "" {
 				wdsesJSON.WriteString(fmt.Sprintf(`{"name":"%s","ITSName":"%s"}`, wds, itsName))
@@ -339,7 +313,6 @@ func (o *DeployOptions) buildHelmJSONValues() map[string]string {
 	return jsonValues
 }
 
-// updateHelmDependencies updates helm chart dependencies
 func (o *DeployOptions) updateHelmDependencies(ctx context.Context) error {
 	fmt.Fprintf(o.Out, "Updating helm dependencies...\n")
 
@@ -350,7 +323,6 @@ func (o *DeployOptions) updateHelmDependencies(ctx context.Context) error {
 	return cmd.Run()
 }
 
-// printPostInstallInstructions prints helpful post-installation instructions
 func (o *DeployOptions) printPostInstallInstructions() {
 	fmt.Fprintf(o.Out, "\n📋 Next Steps:\n")
 
