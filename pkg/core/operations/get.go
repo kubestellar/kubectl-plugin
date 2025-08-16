@@ -1,4 +1,4 @@
-package cmd
+package operations
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -16,192 +15,80 @@ import (
 	"kubectl-multi/pkg/util"
 )
 
-// Custom help function for get command
-func getHelpFunc(cmd *cobra.Command, args []string) {
-	// Get original kubectl help using the new implementation
-	cmdInfo, err := util.GetKubectlCommandInfo("get")
-	if err != nil {
-		// Fallback to default help if kubectl help is not available
-		cmd.Help()
-		return
-	}
-
-	// Multi-cluster plugin information
-	multiClusterInfo := `Get resources from all managed clusters and display them in a unified view.
-Supports all resource types that kubectl get supports.
-
-The output includes cluster context information to help identify which
-cluster each resource belongs to.`
-
-	// Multi-cluster examples
-	multiClusterExamples := `# List all pods in all managed clusters
-kubectl multi get pods
-
-# List all nodes in all managed clusters
-kubectl multi get nodes
-
-# List deployments in specific namespace across all clusters
-kubectl multi get deployments -n production
-
-# List all resources in all namespaces across all clusters
-kubectl multi get all -A
-
-# Get pods with labels
-kubectl multi get pods -l app=nginx
-
-# Get specific pod across all clusters
-kubectl multi get pod nginx-pod
-
-# Get services with wide output
-kubectl multi get services -o wide
-
-#get all job
-kubectl multi get jobs
-`
-
-	// Multi-cluster usage
-	multiClusterUsage := `kubectl multi get [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...] [flags]`
-
-	// Format combined help using the new CommandInfo structure
-	combinedHelp := util.FormatMultiClusterHelp(cmdInfo, multiClusterInfo, multiClusterExamples, multiClusterUsage)
-	fmt.Fprintln(cmd.OutOrStdout(), combinedHelp)
+// GetOptions contains all the options for the get operation
+type GetOptions struct {
+	Clusters      []cluster.ClusterInfo
+	ResourceType  string
+	ResourceName  string
+	Namespace     string
+	AllNamespaces bool
+	Selector      string
+	ShowLabels    bool
+	OutputFormat  string
 }
 
-func newGetCommand() *cobra.Command {
-	var outputFormat string
-	var selector string
-	var showLabels bool
-	var watch bool
-	var watchOnly bool
-
-	cmd := &cobra.Command{
-		Use:   "get [TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...]",
-		Short: "Display one or many resources across all managed clusters",
-		Long: `Get resources from all managed clusters and display them in a unified view.
-Supports all resource types that kubectl get supports.
-
-The output includes cluster context information to help identify which
-cluster each resource belongs to.`,
-		Example: `# List all pods in all managed clusters
-kubectl multi get pods
-
-# List all nodes in all managed clusters
-kubectl multi get nodes
-
-# List deployments in specific namespace across all clusters
-kubectl multi get deployments -n production
-
-# List all resources in all namespaces across all clusters
-kubectl multi get all -A
-
-# Get pods with labels
-kubectl multi get pods -l app=nginx
-
-# Get specific pod across all clusters
-kubectl multi get pod nginx-pod
-
-# Get services with wide output
-kubectl multi get services -o wide`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return fmt.Errorf("resource type must be specified")
-			}
-
-			kubeconfig, remoteCtx, _, namespace, allNamespaces := GetGlobalFlags()
-			return handleGetCommand(args, outputFormat, selector, showLabels, watch, watchOnly, kubeconfig, remoteCtx, namespace, allNamespaces)
-		},
-	}
-
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "output format (json|yaml|wide|name|custom-columns=...|custom-columns-file=...|go-template=...|go-template-file=...|jsonpath=...|jsonpath-file=...)")
-	cmd.Flags().StringVarP(&selector, "selector", "l", "", "selector (label query) to filter on")
-	cmd.Flags().BoolVar(&showLabels, "show-labels", false, "show all labels as the last column")
-	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "watch for changes to the requested object(s)")
-	cmd.Flags().BoolVar(&watchOnly, "watch-only", false, "watch for changes to the requested object(s), without listing/getting first")
-
-	// Set custom help function
-	cmd.SetHelpFunc(getHelpFunc)
-
-	return cmd
-}
-
-func handleGetCommand(args []string, outputFormat, selector string, showLabels, watch, watchOnly bool, kubeconfig, remoteCtx, namespace string, allNamespaces bool) error {
-	resourceType := args[0]
-	resourceName := ""
-	if len(args) > 1 {
-		resourceName = args[1]
-	}
-
-	// For watch operations, we don't support multi-cluster watch yet
-	if watch || watchOnly {
-		return fmt.Errorf("watch operations are not supported in multi-cluster mode")
-	}
-
-	clusters, err := cluster.DiscoverClusters(kubeconfig, remoteCtx)
-	if err != nil {
-		return fmt.Errorf("failed to discover clusters: %v", err)
-	}
-
+// ExecuteGet performs the get operation across all clusters
+func ExecuteGet(opts GetOptions) error {
 	tw := tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
 	defer tw.Flush()
 
 	// Handle different resource types
-	switch strings.ToLower(resourceType) {
-
+	switch strings.ToLower(opts.ResourceType) {
 	case "jobs", "job":
-		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleJobsGet(tw, opts)
 	case "all":
-		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleAllGet(tw, opts)
 	case "nodes", "node", "no":
-		return handleNodesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
+		return handleNodesGet(tw, opts)
 	case "pods", "pod", "po":
-		return handlePodsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handlePodsGet(tw, opts)
 	case "services", "service", "svc":
-		return handleServicesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleServicesGet(tw, opts)
 	case "deployments", "deployment", "deploy":
-		return handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleDeploymentsGet(tw, opts)
 	case "namespaces", "namespace", "ns":
-		return handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
+		return handleNamespacesGet(tw, opts)
 	case "configmaps", "configmap", "cm":
-		return handleConfigMapsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleConfigMapsGet(tw, opts)
 	case "secrets", "secret":
-		return handleSecretsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleSecretsGet(tw, opts)
 	case "persistentvolumes", "persistentvolume", "pv":
-		return handlePVGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
+		return handlePVGet(tw, opts)
 	case "persistentvolumeclaims", "persistentvolumeclaim", "pvc":
-		return handlePVCGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handlePVCGet(tw, opts)
 	default:
-		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+		return handleGenericGet(tw, opts)
 	}
 }
 
-func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleJobsGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		jobs, err := clusterInfo.Client.BatchV1().Jobs(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list jobs in cluster %s: %v\n", clusterInfo.Name, err)
@@ -209,7 +96,7 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 		}
 
 		for _, job := range jobs.Items {
-			if resourceName != "" && job.Name != resourceName {
+			if opts.ResourceName != "" && job.Name != opts.ResourceName {
 				continue
 			}
 
@@ -236,8 +123,8 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			// Calculate age
 			age := duration.HumanDuration(time.Since(job.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(job.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, job.Namespace, job.Name, completions, jobDuration, age, labels)
@@ -246,7 +133,7 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 						clusterInfo.Name, job.Namespace, job.Name, completions, jobDuration, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(job.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, job.Name, completions, jobDuration, age, labels)
@@ -260,43 +147,44 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 	return nil
 }
 
-func handleAllGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleAllGet(tw *tabwriter.Writer, opts GetOptions) error {
 	fmt.Println("==> Pods")
-	if err := handlePodsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+	if err := handlePodsGet(tw, opts); err != nil {
 		return err
 	}
 	tw.Flush()
 
 	fmt.Println("\n==> Services")
 	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
-	if err := handleServicesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+	if err := handleServicesGet(tw, opts); err != nil {
 		return err
 	}
 	tw.Flush()
 
 	fmt.Println("\n==> Deployments")
 	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
-	if err := handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+	if err := handleDeploymentsGet(tw, opts); err != nil {
 		return err
 	}
 	tw.Flush()
 	return nil
 }
-func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
+
+func handleNodesGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if showLabels {
+	if opts.ShowLabels {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\tLABELS\n")
 	} else {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tROLES\tAGE\tVERSION\n")
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
 		nodes, err := clusterInfo.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list nodes in cluster %s: %v\n", clusterInfo.Name, err)
@@ -304,7 +192,7 @@ func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 		}
 
 		for _, node := range nodes.Items {
-			if resourceName != "" && node.Name != resourceName {
+			if opts.ResourceName != "" && node.Name != opts.ResourceName {
 				continue
 			}
 
@@ -313,7 +201,7 @@ func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 			age := duration.HumanDuration(time.Since(node.CreationTimestamp.Time))
 			version := node.Status.NodeInfo.KubeletVersion
 
-			if showLabels {
+			if opts.ShowLabels {
 				labels := util.FormatLabels(node.Labels)
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, node.Name, status, role, age, version, labels)
@@ -326,34 +214,34 @@ func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 	return nil
 }
 
-func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handlePodsGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		pods, err := clusterInfo.Client.CoreV1().Pods(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list pods in cluster %s: %v\n", clusterInfo.Name, err)
@@ -361,7 +249,7 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 		}
 
 		for _, pod := range pods.Items {
-			if resourceName != "" && pod.Name != resourceName {
+			if opts.ResourceName != "" && pod.Name != opts.ResourceName {
 				continue
 			}
 
@@ -370,8 +258,8 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			restarts := util.GetPodRestarts(&pod)
 			age := duration.HumanDuration(time.Since(pod.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(pod.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age, labels)
@@ -380,7 +268,7 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 						clusterInfo.Name, pod.Namespace, pod.Name, ready, status, restarts, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(pod.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, pod.Name, ready, status, restarts, age, labels)
@@ -394,34 +282,34 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 	return nil
 }
 
-func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleServicesGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		services, err := clusterInfo.Client.CoreV1().Services(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list services in cluster %s: %v\n", clusterInfo.Name, err)
@@ -429,7 +317,7 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 		}
 
 		for _, svc := range services.Items {
-			if resourceName != "" && svc.Name != resourceName {
+			if opts.ResourceName != "" && svc.Name != opts.ResourceName {
 				continue
 			}
 
@@ -439,8 +327,8 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 			ports := util.GetServicePorts(&svc)
 			age := duration.HumanDuration(time.Since(svc.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(svc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
@@ -449,7 +337,7 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 						clusterInfo.Name, svc.Namespace, svc.Name, svcType, clusterIP, externalIP, ports, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(svc.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, svc.Name, svcType, clusterIP, externalIP, ports, age, labels)
@@ -463,34 +351,34 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 	return nil
 }
 
-func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleDeploymentsGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		deployments, err := clusterInfo.Client.AppsV1().Deployments(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list deployments in cluster %s: %v\n", clusterInfo.Name, err)
@@ -498,7 +386,7 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 		}
 
 		for _, deploy := range deployments.Items {
-			if resourceName != "" && deploy.Name != resourceName {
+			if opts.ResourceName != "" && deploy.Name != opts.ResourceName {
 				continue
 			}
 
@@ -511,22 +399,22 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 			available := fmt.Sprintf("%d", deploy.Status.AvailableReplicas)
 			age := duration.HumanDuration(time.Since(deploy.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(deploy.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(deploy.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Name, ready, upToDate, available, age)
 				}
 			}
@@ -535,21 +423,21 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 	return nil
 }
 
-func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
+func handleNamespacesGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if showLabels {
+	if opts.ShowLabels {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tAGE\tLABELS\n")
 	} else {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tAGE\n")
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
 		namespaces, err := clusterInfo.Client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list namespaces in cluster %s: %v\n", clusterInfo.Name, err)
@@ -557,14 +445,14 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 		}
 
 		for _, ns := range namespaces.Items {
-			if resourceName != "" && ns.Name != resourceName {
+			if opts.ResourceName != "" && ns.Name != opts.ResourceName {
 				continue
 			}
 
 			status := string(ns.Status.Phase)
 			age := duration.HumanDuration(time.Since(ns.CreationTimestamp.Time))
 
-			if showLabels {
+			if opts.ShowLabels {
 				labels := util.FormatLabels(ns.Labels)
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, ns.Name, status, age, labels)
@@ -577,34 +465,34 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 	return nil
 }
 
-func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleConfigMapsGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		configMaps, err := clusterInfo.Client.CoreV1().ConfigMaps(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list configmaps in cluster %s: %v\n", clusterInfo.Name, err)
@@ -612,15 +500,15 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 		}
 
 		for _, cm := range configMaps.Items {
-			if resourceName != "" && cm.Name != resourceName {
+			if opts.ResourceName != "" && cm.Name != opts.ResourceName {
 				continue
 			}
 
 			dataCount := len(cm.Data) + len(cm.BinaryData)
 			age := duration.HumanDuration(time.Since(cm.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(cm.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age, labels)
@@ -629,12 +517,12 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 						clusterInfo.Name, cm.Namespace, cm.Name, dataCount, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(cm.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age)
 				}
 			}
@@ -643,34 +531,34 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 	return nil
 }
 
-func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleSecretsGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		secrets, err := clusterInfo.Client.CoreV1().Secrets(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list secrets in cluster %s: %v\n", clusterInfo.Name, err)
@@ -678,7 +566,7 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 		}
 
 		for _, secret := range secrets.Items {
-			if resourceName != "" && secret.Name != resourceName {
+			if opts.ResourceName != "" && secret.Name != opts.ResourceName {
 				continue
 			}
 
@@ -686,8 +574,8 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			dataCount := len(secret.Data)
 			age := duration.HumanDuration(time.Since(secret.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(secret.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age, labels)
@@ -696,12 +584,12 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 						clusterInfo.Name, secret.Namespace, secret.Name, secretType, dataCount, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(secret.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, secret.Name, secretType, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, secret.Name, secretType, dataCount, age)
 				}
 			}
@@ -710,21 +598,21 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 	return nil
 }
 
-func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
+func handlePVGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if showLabels {
+	if opts.ShowLabels {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\tLABELS\n")
 	} else {
 		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\n")
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
 		pvs, err := clusterInfo.Client.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list persistent volumes in cluster %s: %v\n", clusterInfo.Name, err)
@@ -732,7 +620,7 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 		}
 
 		for _, pv := range pvs.Items {
-			if resourceName != "" && pv.Name != resourceName {
+			if opts.ResourceName != "" && pv.Name != opts.ResourceName {
 				continue
 			}
 
@@ -745,7 +633,7 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 			reason := pv.Status.Reason
 			age := duration.HumanDuration(time.Since(pv.CreationTimestamp.Time))
 
-			if showLabels {
+			if opts.ShowLabels {
 				labels := util.FormatLabels(pv.Labels)
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					clusterInfo.Name, pv.Name, capacity, accessModes, reclaimPolicy, status, claim, storageClass, reason, age, labels)
@@ -758,34 +646,34 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 	return nil
 }
 
-func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handlePVCGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.Client == nil {
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
-		if allNamespaces {
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
+		if opts.AllNamespaces {
 			targetNS = ""
 		}
 
 		pvcs, err := clusterInfo.Client.CoreV1().PersistentVolumeClaims(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
+			LabelSelector: opts.Selector,
 		})
 		if err != nil {
 			fmt.Printf("Warning: failed to list persistent volume claims in cluster %s: %v\n", clusterInfo.Name, err)
@@ -793,7 +681,7 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 		}
 
 		for _, pvc := range pvcs.Items {
-			if resourceName != "" && pvc.Name != resourceName {
+			if opts.ResourceName != "" && pvc.Name != opts.ResourceName {
 				continue
 			}
 
@@ -804,22 +692,22 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 			storageClass := util.GetPVCStorageClass(&pvc)
 			age := duration.HumanDuration(time.Since(pvc.CreationTimestamp.Time))
 
-			if allNamespaces {
-				if showLabels {
+			if opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(pvc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(pvc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			}
@@ -828,61 +716,61 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 	return nil
 }
 
-func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceType, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleGenericGet(tw *tabwriter.Writer, opts GetOptions) error {
 	// Print header only once at the top for generic resources
-	if allNamespaces {
-		if showLabels {
+	if opts.AllNamespaces {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\n")
 		}
 	} else {
-		if showLabels {
+		if opts.ShowLabels {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tLABELS\n")
 		} else {
 			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\n")
 		}
 	}
 
-	for _, clusterInfo := range clusters {
+	for _, clusterInfo := range opts.Clusters {
 		if clusterInfo.DynamicClient == nil {
 			continue
 		}
 
 		// Try to discover the resource
-		gvr, isNamespaced, err := util.DiscoverGVR(clusterInfo.DiscoveryClient, resourceType)
+		gvr, isNamespaced, err := util.DiscoverGVR(clusterInfo.DiscoveryClient, opts.ResourceType)
 		if err != nil {
-			fmt.Printf("Warning: failed to discover resource %s in cluster %s: %v\n", resourceType, clusterInfo.Name, err)
+			fmt.Printf("Warning: failed to discover resource %s in cluster %s: %v\n", opts.ResourceType, clusterInfo.Name, err)
 			continue
 		}
 
-		targetNS := cluster.GetTargetNamespace(namespace)
+		targetNS := cluster.GetTargetNamespace(opts.Namespace)
 		var list *unstructured.UnstructuredList
 
-		if isNamespaced && !allNamespaces && targetNS != "" {
+		if isNamespaced && !opts.AllNamespaces && targetNS != "" {
 			list, err = clusterInfo.DynamicClient.Resource(gvr).Namespace(targetNS).List(context.TODO(), metav1.ListOptions{
-				LabelSelector: selector,
+				LabelSelector: opts.Selector,
 			})
 		} else {
 			list, err = clusterInfo.DynamicClient.Resource(gvr).List(context.TODO(), metav1.ListOptions{
-				LabelSelector: selector,
+				LabelSelector: opts.Selector,
 			})
 		}
 
 		if err != nil {
-			fmt.Printf("Warning: failed to list %s in cluster %s: %v\n", resourceType, clusterInfo.Name, err)
+			fmt.Printf("Warning: failed to list %s in cluster %s: %v\n", opts.ResourceType, clusterInfo.Name, err)
 			continue
 		}
 
 		for _, item := range list.Items {
-			if resourceName != "" && item.GetName() != resourceName {
+			if opts.ResourceName != "" && item.GetName() != opts.ResourceName {
 				continue
 			}
 
 			age := duration.HumanDuration(time.Since(item.GetCreationTimestamp().Time))
 
-			if isNamespaced && allNamespaces {
-				if showLabels {
+			if isNamespaced && opts.AllNamespaces {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(item.GetLabels())
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, item.GetNamespace(), item.GetName(), age, labels)
@@ -891,7 +779,7 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 						clusterInfo.Name, item.GetNamespace(), item.GetName(), age)
 				}
 			} else {
-				if showLabels {
+				if opts.ShowLabels {
 					labels := util.FormatLabels(item.GetLabels())
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, item.GetName(), age, labels)
