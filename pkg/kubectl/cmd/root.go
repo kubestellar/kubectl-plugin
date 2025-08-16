@@ -126,22 +126,17 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "target namespace")
 	rootCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "list resources across all namespaces")
 
-	// Add subcommands
+	// Add subcommands with short forms
 	rootCmd.AddCommand(newGetCommand())
 	rootCmd.AddCommand(newDescribeCommand())
 	rootCmd.AddCommand(newApplyCommand())
 	rootCmd.AddCommand(newDeleteCommand())
 	rootCmd.AddCommand(newLogsCommand())
-	rootCmd.AddCommand(newExecCommand())
-	rootCmd.AddCommand(newCreateCommand())
-	rootCmd.AddCommand(newEditCommand())
-	rootCmd.AddCommand(newPatchCommand())
-	rootCmd.AddCommand(newScaleCommand())
 	rootCmd.AddCommand(newRolloutCommand())
-	rootCmd.AddCommand(newPortForwardCommand())
-	rootCmd.AddCommand(newTopCommand())
 	rootCmd.AddCommand(newRunCommand())
-	rootCmd.AddCommand(newMultiGetCommand()) // Register multiget
+	rootCmd.AddCommand(newBindingPolicyCommand())
+	rootCmd.AddCommand(newClustersCommand())
+	rootCmd.AddCommand(newHelmCommand())
 }
 
 // GetGlobalFlags returns the global flags that can be used by subcommands
