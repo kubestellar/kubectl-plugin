@@ -10,7 +10,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-type DeployOptions struct {
+type InstallOptions struct {
 	genericclioptions.IOStreams
 
 	ReleaseName string
@@ -39,8 +39,8 @@ type DeployOptions struct {
 	Verbosity   int
 }
 
-func NewDeployOptions(streams genericclioptions.IOStreams) *DeployOptions {
-	return &DeployOptions{
+func NewInstallOptions(streams genericclioptions.IOStreams) *InstallOptions {
+	return &InstallOptions{
 		IOStreams:         streams,
 		ReleaseName:       "ks-core",
 		Namespace:         "default",
@@ -60,39 +60,39 @@ func NewDeployOptions(streams genericclioptions.IOStreams) *DeployOptions {
 	}
 }
 
-func NewDeployCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	o := NewDeployOptions(streams)
+func NewInstallCmd(streams genericclioptions.IOStreams) *cobra.Command {
+	o := NewInstallOptions(streams)
 
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy KubeStellar core components using Helm chart",
-		Long: `Deploy KubeStellar core components using the official Helm chart.
+		Use:   "install",
+		Short: "Install KubeStellar core components using Helm chart",
+		Long: `Install KubeStellar core components using the official Helm chart.
 
-This command simplifies the deployment of KubeStellar by providing a more
+This command simplifies the installation of KubeStellar by providing a more
 user-friendly interface to the underlying Helm chart. It can install KubeFlex,
 create ITSes (Inventory and Transport Spaces), and WDSes (Workload Description Spaces).
 
 Examples:
   # Basic installation with KubeFlex only
-  kubectl ks deploy
+  kubectl ks install
   
   # Install with one ITS and one WDS
-  kubectl ks deploy --its its1 --wds wds1
+  kubectl ks install --its its1 --wds wds1
   
   # Install with custom cluster name
-  kubectl ks deploy --cluster-name my-cluster --its its1 --wds wds1
+  kubectl ks install --cluster-name my-cluster --its its1 --wds wds1
   
   # Install for OpenShift
-  kubectl ks deploy --openshift
+  kubectl ks install --openshift
   
   # Install with custom domain and port (for Kind clusters)
-  kubectl ks deploy --domain example.com --port 8443 --cluster-name my-kind-cluster
+  kubectl ks install --domain example.com --port 8443 --cluster-name my-kind-cluster
   
   # Install specific version
-  kubectl ks deploy --version v0.28.0
+  kubectl ks install --version v0.28.0
   
   # Dry run to see what would be installed
-  kubectl ks deploy --dry-run --its its1 --wds wds1`,
+  kubectl ks install --dry-run --its its1 --wds wds1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := o.Validate(); err != nil {
 				return err
@@ -132,7 +132,7 @@ Examples:
 	return cmd
 }
 
-func (o *DeployOptions) Validate() error {
+func (o *InstallOptions) Validate() error {
 	// Check if helm is available
 	if _, err := exec.LookPath("helm"); err != nil {
 		return fmt.Errorf("helm is not installed or not in PATH: %w", err)
@@ -151,8 +151,8 @@ func (o *DeployOptions) Validate() error {
 	return nil
 }
 
-func (o *DeployOptions) Run(ctx context.Context) error {
-	fmt.Fprintf(o.Out, "Deploying KubeStellar core components...\n")
+func (o *InstallOptions) Run(ctx context.Context) error {
+	fmt.Fprintf(o.Out, "Installing KubeStellar core components...\n")
 
 	// Auto-set host container if cluster name is provided
 	if o.ClusterName != "" && o.HostContainer == "kubeflex-control-plane" {
@@ -184,14 +184,14 @@ func (o *DeployOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("helm command failed: %w", err)
 	}
 
-	fmt.Fprintf(o.Out, "\n✅ KubeStellar core deployment completed successfully!\n")
+	fmt.Fprintf(o.Out, "\n✅ KubeStellar core installation completed successfully!\n")
 
 	o.printPostInstallInstructions()
 
 	return nil
 }
 
-func (o *DeployOptions) buildHelmArgs() []string {
+func (o *InstallOptions) buildHelmArgs() []string {
 	args := []string{"upgrade", "--install"}
 
 	// Add basic flags
@@ -232,7 +232,7 @@ func (o *DeployOptions) buildHelmArgs() []string {
 	return args
 }
 
-func (o *DeployOptions) buildHelmValues() map[string]string {
+func (o *InstallOptions) buildHelmValues() map[string]string {
 	values := make(map[string]string)
 
 	if !o.InstallKubeFlex {
@@ -272,7 +272,7 @@ func (o *DeployOptions) buildHelmValues() map[string]string {
 	return values
 }
 
-func (o *DeployOptions) buildHelmJSONValues() map[string]string {
+func (o *InstallOptions) buildHelmJSONValues() map[string]string {
 	jsonValues := make(map[string]string)
 
 	// Build ITSes JSON
@@ -313,7 +313,7 @@ func (o *DeployOptions) buildHelmJSONValues() map[string]string {
 	return jsonValues
 }
 
-func (o *DeployOptions) updateHelmDependencies(ctx context.Context) error {
+func (o *InstallOptions) updateHelmDependencies(ctx context.Context) error {
 	fmt.Fprintf(o.Out, "Updating helm dependencies...\n")
 
 	cmd := exec.CommandContext(ctx, "helm", "dependency", "update", o.ChartPath)
@@ -323,7 +323,7 @@ func (o *DeployOptions) updateHelmDependencies(ctx context.Context) error {
 	return cmd.Run()
 }
 
-func (o *DeployOptions) printPostInstallInstructions() {
+func (o *InstallOptions) printPostInstallInstructions() {
 	fmt.Fprintf(o.Out, "\n📋 Next Steps:\n")
 
 	if len(o.ITSes) > 0 || len(o.WDSes) > 0 {
@@ -360,7 +360,7 @@ func (o *DeployOptions) printPostInstallInstructions() {
 		}
 	} else {
 		fmt.Fprintf(o.Out, "\n1. Create control planes using additional helm commands or:\n")
-		fmt.Fprintf(o.Out, "   kubectl ks deploy --its its1 --wds wds1\n")
+		fmt.Fprintf(o.Out, "   kubectl ks install --its its1 --wds wds1\n")
 	}
 
 	fmt.Fprintf(o.Out, "\n📖 For more information, visit: https://docs.kubestellar.io/\n")

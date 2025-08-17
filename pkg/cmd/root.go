@@ -52,13 +52,13 @@ kubectl multi describe pod mypod
 kubectl multi get services -n kube-system
 
 # Apply a manifest to all clusters
-kubectl multi apply -f deployment.yaml
+kubectl multi apply -f installment.yaml
 
 # Delete resources from all clusters
-kubectl multi delete deployment nginx
+kubectl multi delete installment nginx
 
-# Deploy KubeStellar core components
-kubectl multi deploy --its its1 --wds wds1`
+# install KubeStellar core components
+kubectl multi install --its its1 --wds wds1`
 
 	// Multi-cluster usage
 	multiClusterUsage := `kubectl multi [command] [flags]`
@@ -107,13 +107,13 @@ kubectl multi describe pod mypod
 kubectl multi get services -n kube-system
 
 # Apply a manifest to all clusters
-kubectl multi apply -f deployment.yaml
+kubectl multi apply -f installment.yaml
 
 # Delete resources from all clusters
-kubectl multi delete deployment nginx
+kubectl multi delete installment nginx
 
-# Deploy KubeStellar core components
-kubectl multi deploy --its its1 --wds wds1`,
+# install KubeStellar core components
+kubectl multi install --its its1 --wds wds1`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -151,13 +151,13 @@ func init() {
 	rootCmd.AddCommand(newRunCommand())
 	rootCmd.AddCommand(newMultiGetCommand()) // Register multiget
 
-	// Add the deploy command - NEW LINE
+	// Add the install command - NEW LINE
 	streams := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
 		ErrOut: os.Stderr,
 	}
-	rootCmd.AddCommand(NewDeployCmd(streams))
+	rootCmd.AddCommand(NewInstallCmd(streams))
 }
 
 // GetGlobalFlags returns the global flags that can be used by subcommands
