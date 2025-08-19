@@ -514,19 +514,19 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(deploy.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Namespace, deploy.Name, ready, upToDate, available, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(deploy.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Name, ready, upToDate, available, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, deploy.Name, ready, upToDate, available, age)
 				}
 			}
@@ -698,10 +698,10 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(secret.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, secret.Name, secretType, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, secret.Name, secretType, dataCount, age)
 				}
 			}
@@ -807,19 +807,19 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(pvc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Namespace, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(pvc.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, pvc.Name, status, volume, capacity, accessModes, storageClass, age)
 				}
 			}
