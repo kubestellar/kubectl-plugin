@@ -631,10 +631,10 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(cm.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age)
 				}
 			}
