@@ -576,7 +576,6 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 	}
 	return nil
 }
-
 func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
 	// Print header only once at the top
 	if allNamespaces {
@@ -631,10 +630,10 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(cm.Labels)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age, labels)
 				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, cm.Name, dataCount, age)
 				}
 			}
