@@ -159,6 +159,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleServicesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "deployments", "deployment", "deploy":
 		return handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "replicasets", "replicaset", "rs":
+		return handleReplicaSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "namespaces", "namespace", "ns":
 		return handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "configmaps", "configmap", "cm":
@@ -898,6 +900,76 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\n",
 						clusterInfo.Name, item.GetName(), age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		replicaSets, err := clusterInfo.Client.AppsV1().ReplicaSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list replicasets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, rs := range replicaSets.Items {
+			if resourceName != "" && rs.Name != resourceName {
+				continue
+			}
+
+			var desired int32 = 0
+			if rs.Spec.Replicas != nil {
+				desired = *rs.Spec.Replicas
+			}
+			current := rs.Status.Replicas
+			ready := rs.Status.ReadyReplicas
+			age := duration.HumanDuration(time.Since(rs.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(rs.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, rs.Namespace, rs.Name, desired, current, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+						clusterInfo.Name, rs.Namespace, rs.Name, desired, current, ready, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(rs.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, rs.Name, desired, current, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\n",
+						clusterInfo.Name, rs.Name, desired, current, ready, age)
 				}
 			}
 		}
