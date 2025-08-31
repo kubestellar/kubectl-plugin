@@ -165,6 +165,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "configmaps", "configmap", "cm":
 		return handleConfigMapsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "statefulsets", "statefulset", "sts":
+		return handleStatefulSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "secrets", "secret":
 		return handleSecretsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "persistentvolumes", "persistentvolume", "pv":
@@ -970,6 +972,75 @@ func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\n",
 						clusterInfo.Name, rs.Name, desired, current, ready, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		statefulSets, err := clusterInfo.Client.AppsV1().StatefulSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list statefulsets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, sts := range statefulSets.Items {
+			if resourceName != "" && sts.Name != resourceName {
+				continue
+			}
+
+			var replicas int32 = 0
+			if sts.Spec.Replicas != nil {
+				replicas = *sts.Spec.Replicas
+			}
+			ready := fmt.Sprintf("%d/%d", sts.Status.ReadyReplicas, replicas)
+			age := duration.HumanDuration(time.Since(sts.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(sts.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Namespace, sts.Name, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Namespace, sts.Name, ready, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(sts.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Name, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Name, ready, age)
 				}
 			}
 		}
