@@ -161,6 +161,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "replicasets", "replicaset", "rs":
 		return handleReplicaSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "daemonsets", "daemonset", "ds":
+		return handleDaemonSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "namespaces", "namespace", "ns":
 		return handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "configmaps", "configmap", "cm":
@@ -1041,6 +1043,86 @@ func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo,
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, sts.Name, ready, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		daemonSets, err := clusterInfo.Client.AppsV1().DaemonSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list daemonsets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, ds := range daemonSets.Items {
+			if resourceName != "" && ds.Name != resourceName {
+				continue
+			}
+
+			desired := ds.Status.DesiredNumberScheduled
+			current := ds.Status.CurrentNumberScheduled
+			ready := ds.Status.NumberReady
+			upToDate := ds.Status.UpdatedNumberScheduled
+			available := ds.Status.NumberAvailable
+
+			// Format node selector
+			nodeSelector := "<none>"
+			if len(ds.Spec.Template.Spec.NodeSelector) > 0 {
+				var selectors []string
+				for k, v := range ds.Spec.Template.Spec.NodeSelector {
+					selectors = append(selectors, fmt.Sprintf("%s=%s", k, v))
+				}
+				nodeSelector = strings.Join(selectors, ",")
+			}
+
+			age := duration.HumanDuration(time.Since(ds.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(ds.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, ds.Namespace, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, ds.Namespace, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(ds.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age)
 				}
 			}
 		}
