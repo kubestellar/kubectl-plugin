@@ -149,6 +149,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "cronjobs", "cronjob", "cj":
+		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -1123,6 +1125,84 @@ func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
 						clusterInfo.Name, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		cronJobs, err := clusterInfo.Client.BatchV1().CronJobs(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list cronjobs in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, cj := range cronJobs.Items {
+			if resourceName != "" && cj.Name != resourceName {
+				continue
+			}
+
+			schedule := cj.Spec.Schedule
+
+			suspend := "False"
+			if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
+				suspend = "True"
+			}
+
+			active := len(cj.Status.Active)
+
+			lastSchedule := "<none>"
+			if cj.Status.LastScheduleTime != nil {
+				lastSchedule = duration.HumanDuration(time.Since(cj.Status.LastScheduleTime.Time))
+			}
+
+			age := duration.HumanDuration(time.Since(cj.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(cj.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, cj.Namespace, cj.Name, schedule, suspend, active, lastSchedule, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, cj.Namespace, cj.Name, schedule, suspend, active, lastSchedule, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(cj.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age)
 				}
 			}
 		}
