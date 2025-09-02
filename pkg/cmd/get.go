@@ -149,6 +149,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "cronjobs", "cronjob", "cj":
+		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -159,10 +161,16 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleServicesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "deployments", "deployment", "deploy":
 		return handleDeploymentsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "replicasets", "replicaset", "rs":
+		return handleReplicaSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "daemonsets", "daemonset", "ds":
+		return handleDaemonSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "namespaces", "namespace", "ns":
 		return handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "configmaps", "configmap", "cm":
 		return handleConfigMapsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "statefulsets", "statefulset", "sts":
+		return handleStatefulSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "secrets", "secret":
 		return handleSecretsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "persistentvolumes", "persistentvolume", "pv":
@@ -898,6 +906,303 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\n",
 						clusterInfo.Name, item.GetName(), age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		replicaSets, err := clusterInfo.Client.AppsV1().ReplicaSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list replicasets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, rs := range replicaSets.Items {
+			if resourceName != "" && rs.Name != resourceName {
+				continue
+			}
+
+			var desired int32 = 0
+			if rs.Spec.Replicas != nil {
+				desired = *rs.Spec.Replicas
+			}
+			current := rs.Status.Replicas
+			ready := rs.Status.ReadyReplicas
+			age := duration.HumanDuration(time.Since(rs.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(rs.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, rs.Namespace, rs.Name, desired, current, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+						clusterInfo.Name, rs.Namespace, rs.Name, desired, current, ready, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(rs.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, rs.Name, desired, current, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\n",
+						clusterInfo.Name, rs.Name, desired, current, ready, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		statefulSets, err := clusterInfo.Client.AppsV1().StatefulSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list statefulsets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, sts := range statefulSets.Items {
+			if resourceName != "" && sts.Name != resourceName {
+				continue
+			}
+
+			var replicas int32 = 0
+			if sts.Spec.Replicas != nil {
+				replicas = *sts.Spec.Replicas
+			}
+			ready := fmt.Sprintf("%d/%d", sts.Status.ReadyReplicas, replicas)
+			age := duration.HumanDuration(time.Since(sts.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(sts.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Namespace, sts.Name, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Namespace, sts.Name, ready, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(sts.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Name, ready, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, sts.Name, ready, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		daemonSets, err := clusterInfo.Client.AppsV1().DaemonSets(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list daemonsets in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, ds := range daemonSets.Items {
+			if resourceName != "" && ds.Name != resourceName {
+				continue
+			}
+
+			desired := ds.Status.DesiredNumberScheduled
+			current := ds.Status.CurrentNumberScheduled
+			ready := ds.Status.NumberReady
+			upToDate := ds.Status.UpdatedNumberScheduled
+			available := ds.Status.NumberAvailable
+
+			// Format node selector
+			nodeSelector := "<none>"
+			if len(ds.Spec.Template.Spec.NodeSelector) > 0 {
+				var selectors []string
+				for k, v := range ds.Spec.Template.Spec.NodeSelector {
+					selectors = append(selectors, fmt.Sprintf("%s=%s", k, v))
+				}
+				nodeSelector = strings.Join(selectors, ",")
+			}
+
+			age := duration.HumanDuration(time.Since(ds.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(ds.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, ds.Namespace, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, ds.Namespace, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(ds.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						clusterInfo.Name, ds.Name, desired, current, ready, upToDate, available, nodeSelector, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		cronJobs, err := clusterInfo.Client.BatchV1().CronJobs(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list cronjobs in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, cj := range cronJobs.Items {
+			if resourceName != "" && cj.Name != resourceName {
+				continue
+			}
+
+			schedule := cj.Spec.Schedule
+
+			suspend := "False"
+			if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
+				suspend = "True"
+			}
+
+			active := len(cj.Status.Active)
+
+			lastSchedule := "<none>"
+			if cj.Status.LastScheduleTime != nil {
+				lastSchedule = duration.HumanDuration(time.Since(cj.Status.LastScheduleTime.Time))
+			}
+
+			age := duration.HumanDuration(time.Since(cj.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(cj.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, cj.Namespace, cj.Name, schedule, suspend, active, lastSchedule, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, cj.Namespace, cj.Name, schedule, suspend, active, lastSchedule, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(cj.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age)
 				}
 			}
 		}
