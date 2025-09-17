@@ -177,6 +177,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handlePVGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "persistentvolumeclaims", "persistentvolumeclaim", "pvc":
 		return handlePVCGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "events", "event", "ev":
+		return handleEventsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
@@ -1203,6 +1205,80 @@ func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func handleEventsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	if allNamespaces {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tLAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tLAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\n")
+		}
+	} else {
+		if showLabels {
+			fmt.Fprintf(tw, "CLUSTER\tLAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\tLABELS\n")
+		} else {
+			fmt.Fprintf(tw, "CLUSTER\tLAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\n")
+		}
+	}
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		events, err := clusterInfo.Client.CoreV1().Events(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list events in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		for _, event := range events.Items {
+			if resourceName != "" && event.Name != resourceName {
+				continue
+			}
+
+			lastSeen := "<unknown>"
+			if !event.LastTimestamp.IsZero() {
+				lastSeen = duration.HumanDuration(time.Since(event.LastTimestamp.Time)) + " ago"
+			} else if !event.FirstTimestamp.IsZero() {
+				lastSeen = duration.HumanDuration(time.Since(event.FirstTimestamp.Time)) + " ago"
+			}
+
+			eventType := event.Type
+			reason := event.Reason
+			object := fmt.Sprintf("%s/%s", event.InvolvedObject.Kind, event.InvolvedObject.Name)
+			message := event.Message
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(event.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, event.Namespace, lastSeen, eventType, reason, object, message, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, event.Namespace, lastSeen, eventType, reason, object, message)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(event.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, lastSeen, eventType, reason, object, message, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, lastSeen, eventType, reason, object, message)
 				}
 			}
 		}
