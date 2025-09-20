@@ -4,6 +4,7 @@ This guide provides comprehensive examples and usage patterns for kubectl-multi.
 
 ## Basic Commands
 
+
 ### Get Resources
 
 ```bash
@@ -21,6 +22,27 @@ kubectl multi get deployments -l app=nginx -A
 
 # Show labels
 kubectl multi get pods --show-labels -n kube-system
+
+# Get ReplicaSets
+kubectl multi get replicasets -A
+
+# Get DaemonSets
+kubectl multi get daemonsets -A
+
+# Get StatefulSets
+kubectl multi get statefulsets -A
+
+# Get CronJobs
+kubectl multi get cronjobs -A
+
+# Get Ingresses
+kubectl multi get ingresses -A
+
+# Get NetworkPolicies
+kubectl multi get networkpolicies -A
+
+# Get ServiceAccounts
+kubectl multi get serviceaccounts -A
 ```
 
 ### Global Flags
