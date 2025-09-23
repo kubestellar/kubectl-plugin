@@ -183,20 +183,7 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 }
 
 func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -214,6 +201,24 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 		if err != nil {
 			fmt.Printf("Warning: failed to list jobs in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(jobs.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when items len is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tCOMPLETIONS\tDURATION\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, job := range jobs.Items {
@@ -265,6 +270,19 @@ func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
 
@@ -335,20 +353,7 @@ func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 }
 
 func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -366,6 +371,24 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 		if err != nil {
 			fmt.Printf("Warning: failed to list pods in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(pods.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tSTATUS\tRESTARTS\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, pod := range pods.Items {
@@ -399,24 +422,23 @@ func handlePodsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourc
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -434,6 +456,25 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 		if err != nil {
 			fmt.Printf("Warning: failed to list services in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(services.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tCLUSTER-IP\tEXTERNAL-IP\tPORT(S)\tAGE\n")
+				}
+
+			}
+			isHeaderPrint = true
 		}
 
 		for _, svc := range services.Items {
@@ -468,24 +509,24 @@ func handleServicesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
 
 func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -503,6 +544,24 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 		if err != nil {
 			fmt.Printf("Warning: failed to list deployments in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(deployments.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, deploy := range deployments.Items {
@@ -540,6 +599,19 @@ func handleDeploymentsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
 
@@ -586,20 +658,7 @@ func handleNamespacesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 }
 
 func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -617,6 +676,24 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 		if err != nil {
 			fmt.Printf("Warning: failed to list configmaps in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(configMaps.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDATA\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDATA\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, cm := range configMaps.Items {
@@ -648,24 +725,23 @@ func handleConfigMapsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -683,6 +759,24 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 		if err != nil {
 			fmt.Printf("Warning: failed to list secrets in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(secrets.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tTYPE\tDATA\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tTYPE\tDATA\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, secret := range secrets.Items {
@@ -715,16 +809,24 @@ func handleSecretsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
 
 func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
-	// Print header only once at the top
-	if showLabels {
-		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\tLABELS\n")
-	} else {
-		fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\n")
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -737,6 +839,15 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 		if err != nil {
 			fmt.Printf("Warning: failed to list persistent volumes in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(pvs.Items) > 0 && !isHeaderPrint {
+			if showLabels {
+				fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\tLABELS\n")
+			} else {
+				fmt.Fprintf(tw, "CLUSTER\tNAME\tCAPACITY\tACCESS MODES\tRECLAIM POLICY\tSTATUS\tCLAIM\tSTORAGE CLASS\tREASON\tAGE\n")
+			}
+			isHeaderPrint = true
 		}
 
 		for _, pv := range pvs.Items {
@@ -763,24 +874,16 @@ func handlePVGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceN
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		fmt.Fprintf(tw, "No resources found\n")
+	}
+
 	return nil
 }
 
 func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -798,6 +901,24 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 		if err != nil {
 			fmt.Printf("Warning: failed to list persistent volume claims in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(pvcs.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tSTATUS\tVOLUME\tCAPACITY\tACCESS MODES\tSTORAGE CLASS\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, pvc := range pvcs.Items {
@@ -833,24 +954,23 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceType, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	// Print header only once at the top for generic resources
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.DynamicClient == nil {
@@ -882,6 +1002,24 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			continue
 		}
 
+		if len(list.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
 		for _, item := range list.Items {
 			if resourceName != "" && item.GetName() != resourceName {
 				continue
@@ -910,23 +1048,25 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
 
 func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -944,6 +1084,24 @@ func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 		if err != nil {
 			fmt.Printf("Warning: failed to list replicasets in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(replicaSets.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, rs := range replicaSets.Items {
@@ -980,23 +1138,23 @@ func handleReplicaSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, 
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -1014,6 +1172,24 @@ func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo,
 		if err != nil {
 			fmt.Printf("Warning: failed to list statefulsets in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(statefulSets.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tREADY\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tREADY\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, sts := range statefulSets.Items {
@@ -1049,23 +1225,23 @@ func handleStatefulSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo,
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -1083,6 +1259,23 @@ func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 		if err != nil {
 			fmt.Printf("Warning: failed to list daemonsets in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(daemonSets.Items) > 0 && !isHeaderPrint {
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tDESIRED\tCURRENT\tREADY\tUP-TO-DATE\tAVAILABLE\tNODE SELECTOR\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, ds := range daemonSets.Items {
@@ -1129,23 +1322,23 @@ func handleDaemonSetsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, r
 			}
 		}
 	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
 	return nil
 }
 
 func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	if allNamespaces {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
-		}
-	} else {
-		if showLabels {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
-		} else {
-			fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
-		}
-	}
+	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
 		if clusterInfo.Client == nil {
@@ -1163,6 +1356,23 @@ func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 		if err != nil {
 			fmt.Printf("Warning: failed to list cronjobs in cluster %s: %v\n", clusterInfo.Name, err)
 			continue
+		}
+
+		if len(cronJobs.Items) > 0 && !isHeaderPrint {
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tSCHEDULE\tSUSPEND\tACTIVE\tLAST SCHEDULE\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
 		}
 
 		for _, cj := range cronJobs.Items {
@@ -1205,6 +1415,18 @@ func handleCronJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, res
 						clusterInfo.Name, cj.Name, schedule, suspend, active, lastSchedule, age)
 				}
 			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
 		}
 	}
 	return nil
