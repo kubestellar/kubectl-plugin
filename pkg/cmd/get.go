@@ -177,8 +177,6 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handlePVGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "persistentvolumeclaims", "persistentvolumeclaim", "pvc":
 		return handlePVCGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
-	case "events", "event", "ev":
-		return handleEventsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
