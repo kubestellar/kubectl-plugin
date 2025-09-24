@@ -54,7 +54,7 @@ kubectl multi get pod nginx-pod
 
 # Get services with wide output
 kubectl multi get services -o wide
-
+ 
 #get all job
 kubectl multi get jobs
 `
