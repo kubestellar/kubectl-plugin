@@ -4,10 +4,7 @@ This guide provides comprehensive examples and usage patterns for kubectl-multi.
 
 ## Basic Commands
 
-
 ### Get Resources
-
-> **Note:** Before running these commands, ensure you have set up the official KubeStellar demo environment as described in the [Getting Started](https://kubestellar.io/docs/getting-started/) guide.
 
 ```bash
 # Get nodes from all managed clusters
@@ -24,31 +21,6 @@ kubectl multi get deployments -l app=nginx -A
 
 # Show labels
 kubectl multi get pods --show-labels -n kube-system
-```
-
-#### Common API Commands
-
-```bash
-# Get ReplicaSets
-kubectl multi get replicasets -A
-
-# Get DaemonSets
-kubectl multi get daemonsets -A
-
-# Get StatefulSets
-kubectl multi get statefulsets -A
-
-# Get CronJobs
-kubectl multi get cronjobs -A
-
-# Get Ingresses
-kubectl multi get ingresses -A
-
-# Get NetworkPolicies
-kubectl multi get networkpolicies -A
-
-# Get ServiceAccounts
-kubectl multi get serviceaccounts -A
 ```
 
 ### Global Flags
