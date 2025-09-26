@@ -28,13 +28,14 @@ kubectl multi get nodes
 kubectl multi get pods -A
 ```
 
+
 ## Documentation
 
-- **[Installation Guide](docs/installation.md)** - How to install and set up kubectl-multi
-- **[Usage Guide](docs/usage.md)** - Detailed usage examples and commands
-- **[Architecture Guide](docs/architecture.md)** - Technical architecture and how it works
-- **[Development Guide](docs/development.md)** - Contributing and development workflow
-- **[API Reference](docs/api-reference.md)** - Code organization and technical implementation
+- **[Installation Guide](docs/installation_guide.md)** - How to install and set up kubectl-multi
+- **[Usage Guide](docs/usage_guide.md)** - Detailed usage examples and commands
+- **[Architecture Guide](docs/architecture_guide.md)** - Technical architecture and how it works
+- **[Development Guide](docs/development_guide.md)** - Contributing and development workflow
+- **[API Reference](docs/api_reference.md)** - Code organization and technical implementation
 
 ## Tech Stack
 
