@@ -151,6 +151,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
 		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "serviceaccounts", "serviceaccount", "sa":
+		return handleServiceAccountsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -182,6 +184,11 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
+}
+
+func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	fmt.Fprintf(tw, "ServiceAccount support not implemented yet\n")
+	return nil
 }
 
 func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
