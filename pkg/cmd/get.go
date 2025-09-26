@@ -151,6 +151,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
 		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "networkpolicies", "networkpolicy", "np":
+		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -1505,5 +1507,10 @@ func handleEventsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resou
 			}
 		}
 	}
+	return nil
+}
+
+func handleNetworkPoliciesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	fmt.Fprintf(tw, "NetworkPolicy support not implemented yet\n")
 	return nil
 }
