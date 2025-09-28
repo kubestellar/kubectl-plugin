@@ -147,8 +147,6 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	// Handle different resource types
 	switch strings.ToLower(resourceType) {
 
-	case "ingresses", "ingress", "ing":
-		return handleIngressesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
@@ -184,11 +182,6 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
-}
-
-func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	fmt.Fprintf(tw, "Ingress support not implemented yet\n")
-	return nil
 }
 
 func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
