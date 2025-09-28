@@ -147,6 +147,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	// Handle different resource types
 	switch strings.ToLower(resourceType) {
 
+	case "ingresses", "ingress", "ing":
+		return handleIngressesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
@@ -182,6 +184,144 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
+}
+
+func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		ingresses, err := clusterInfo.Client.NetworkingV1().Ingresses(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list ingresses in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(ingresses.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, ing := range ingresses.Items {
+			if resourceName != "" && ing.Name != resourceName {
+				continue
+			}
+
+			// Gather hosts
+			var hosts []string
+			for _, rule := range ing.Spec.Rules {
+				if rule.Host != "" {
+					hosts = append(hosts, rule.Host)
+				}
+			}
+			hostsStr := strings.Join(hosts, ",")
+			if hostsStr == "" {
+				hostsStr = "<none>"
+			}
+
+			// Gather address
+			address := "<none>"
+			if len(ing.Status.LoadBalancer.Ingress) > 0 {
+				var addrs []string
+				for _, lb := range ing.Status.LoadBalancer.Ingress {
+					if lb.IP != "" {
+						addrs = append(addrs, lb.IP)
+					} else if lb.Hostname != "" {
+						addrs = append(addrs, lb.Hostname)
+					}
+				}
+				if len(addrs) > 0 {
+					address = strings.Join(addrs, ",")
+				}
+			}
+
+			// Gather ports
+			var ports []string
+			for _, rule := range ing.Spec.Rules {
+				if rule.HTTP != nil {
+					for range rule.HTTP.Paths {
+						// Ingress does not specify port directly; default is 80
+						ports = append(ports, "80")
+					}
+				}
+			}
+			// If TLS is specified, port 443 is implied
+			if len(ing.Spec.TLS) > 0 {
+				ports = append(ports, "443")
+			}
+			// Deduplicate ports
+			portMap := make(map[string]struct{})
+			for _, p := range ports {
+				portMap[p] = struct{}{}
+			}
+			var portList []string
+			for p := range portMap {
+				portList = append(portList, p)
+			}
+			portsStr := strings.Join(portList, ",")
+			if portsStr == "" {
+				portsStr = "<none>"
+			}
+
+			age := duration.HumanDuration(time.Since(ing.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(ing.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Namespace, ing.Name, hostsStr, address, portsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Namespace, ing.Name, hostsStr, address, portsStr, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(ing.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Name, hostsStr, address, portsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Name, hostsStr, address, portsStr, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+	return nil
 }
 
 func handleJobsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
