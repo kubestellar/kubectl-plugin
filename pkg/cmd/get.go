@@ -191,7 +191,6 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 }
 
 func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
 	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
@@ -225,27 +224,6 @@ func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, re
 					fmt.Fprintf(tw, "CLUSTER\tNAME\tSECRETS\tAGE\tLABELS\n")
 				} else {
 					fmt.Fprintf(tw, "CLUSTER\tNAME\tSECRETS\tAGE\n")
-		ingresses, err := clusterInfo.Client.NetworkingV1().Ingresses(targetNS).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: selector,
-		})
-		if err != nil {
-			fmt.Printf("Warning: failed to list ingresses in cluster %s: %v\n", clusterInfo.Name, err)
-			continue
-		}
-
-		if len(ingresses.Items) > 0 && !isHeaderPrint {
-			// Print header only once at top when any items is greater than 0.
-			if allNamespaces {
-				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
-				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
-				}
-			} else {
-				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
-				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
 				}
 			}
 			isHeaderPrint = true
@@ -276,6 +254,65 @@ func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, re
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, sa.Name, secrets, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
+	return nil
+}
+
+func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		ingresses, err := clusterInfo.Client.NetworkingV1().Ingresses(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list ingresses in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(ingresses.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
 		for _, ing := range ingresses.Items {
 			if resourceName != "" && ing.Name != resourceName {
 				continue

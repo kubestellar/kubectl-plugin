@@ -377,6 +377,8 @@ func handleMultiGetCommand(args []string, outputFormat, selector string, showLab
 		return handleConfigMapsGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "secrets", "secret":
 		return handleSecretsGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "serviceaccounts", "serviceaccount", "sa":
+		return handleServiceAccountsGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "persistentvolumes", "persistentvolume", "pv":
 		return handlePVGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "persistentvolumeclaims", "persistentvolumeclaim", "pvc":
@@ -440,6 +442,14 @@ func handleSecretsGetMulti(tw *tabwriter.Writer, clusters []MultiGetClusterInfo,
 		infos = append(infos, toClusterInfo(c))
 	}
 	return handleSecretsGet(tw, infos, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+}
+
+func handleServiceAccountsGetMulti(tw *tabwriter.Writer, clusters []MultiGetClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	var infos []cluster.ClusterInfo
+	for _, c := range clusters {
+		infos = append(infos, toClusterInfo(c))
+	}
+	return handleServiceAccountsGet(tw, infos, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 }
 
 func handlePVGetMulti(tw *tabwriter.Writer, clusters []MultiGetClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
