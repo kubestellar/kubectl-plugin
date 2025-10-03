@@ -147,12 +147,16 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 	// Handle different resource types
 	switch strings.ToLower(resourceType) {
 
+	case "ingresses", "ingress", "ing":
+		return handleIngressesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "jobs", "job":
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
 		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "serviceaccounts", "serviceaccount", "sa":
 		return handleServiceAccountsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "networkpolicies", "networkpolicy", "np":
+		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -187,6 +191,7 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 }
 
 func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+func handleIngressesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
 	isHeaderPrint := false
 
 	for _, clusterInfo := range clusters {
@@ -220,6 +225,27 @@ func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterIn
 					fmt.Fprintf(tw, "CLUSTER\tNAME\tSECRETS\tAGE\tLABELS\n")
 				} else {
 					fmt.Fprintf(tw, "CLUSTER\tNAME\tSECRETS\tAGE\n")
+		ingresses, err := clusterInfo.Client.NetworkingV1().Ingresses(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list ingresses in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(ingresses.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tHOSTS\tADDRESS\tPORTS\tAGE\n")
 				}
 			}
 			isHeaderPrint = true
@@ -250,6 +276,86 @@ func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterIn
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, sa.Name, secrets, age)
+		for _, ing := range ingresses.Items {
+			if resourceName != "" && ing.Name != resourceName {
+				continue
+			}
+
+			// Gather hosts
+			var hosts []string
+			for _, rule := range ing.Spec.Rules {
+				if rule.Host != "" {
+					hosts = append(hosts, rule.Host)
+				}
+			}
+			hostsStr := strings.Join(hosts, ",")
+			if hostsStr == "" {
+				hostsStr = "<none>"
+			}
+
+			// Gather address
+			address := "<none>"
+			if len(ing.Status.LoadBalancer.Ingress) > 0 {
+				var addrs []string
+				for _, lb := range ing.Status.LoadBalancer.Ingress {
+					if lb.IP != "" {
+						addrs = append(addrs, lb.IP)
+					} else if lb.Hostname != "" {
+						addrs = append(addrs, lb.Hostname)
+					}
+				}
+				if len(addrs) > 0 {
+					address = strings.Join(addrs, ",")
+				}
+			}
+
+			// Gather ports
+			var ports []string
+			for _, rule := range ing.Spec.Rules {
+				if rule.HTTP != nil {
+					for range rule.HTTP.Paths {
+						// Ingress does not specify port directly; default is 80
+						ports = append(ports, "80")
+					}
+				}
+			}
+			// If TLS is specified, port 443 is implied
+			if len(ing.Spec.TLS) > 0 {
+				ports = append(ports, "443")
+			}
+			// Deduplicate ports
+			portMap := make(map[string]struct{})
+			for _, p := range ports {
+				portMap[p] = struct{}{}
+			}
+			var portList []string
+			for p := range portMap {
+				portList = append(portList, p)
+			}
+			portsStr := strings.Join(portList, ",")
+			if portsStr == "" {
+				portsStr = "<none>"
+			}
+
+			age := duration.HumanDuration(time.Since(ing.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(ing.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Namespace, ing.Name, hostsStr, address, portsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Namespace, ing.Name, hostsStr, address, portsStr, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(ing.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Name, hostsStr, address, portsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ing.Name, hostsStr, address, portsStr, age)
 				}
 			}
 		}
@@ -394,6 +500,84 @@ func handleAllGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 		return err
 	}
 	tw.Flush()
+
+	fmt.Println("\n==> Jobs")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> CronJobs")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Nodes")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleNodesGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> ReplicaSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleReplicaSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> DaemonSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleDaemonSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Namespaces")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> ConfigMaps")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleConfigMapsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> StatefulSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleStatefulSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Secrets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleSecretsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> PersistentVolumes")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handlePVGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> PersistentVolumeClaims")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handlePVCGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
 	return nil
 }
 func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
@@ -1591,5 +1775,104 @@ func handleEventsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resou
 			}
 		}
 	}
+	return nil
+}
+
+func handleNetworkPoliciesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		networkPolicies, err := clusterInfo.Client.NetworkingV1().NetworkPolicies(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list networkpolicies in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(networkPolicies.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, np := range networkPolicies.Items {
+			if resourceName != "" && np.Name != resourceName {
+				continue
+			}
+
+			// Format pod selector
+			podSelector := "<none>"
+			if np.Spec.PodSelector.Size() > 0 {
+				podSelector = metav1.FormatLabelSelector(&np.Spec.PodSelector)
+			}
+
+			// Format policy types
+			policyTypes := "<none>"
+			if len(np.Spec.PolicyTypes) > 0 {
+				var types []string
+				for _, t := range np.Spec.PolicyTypes {
+					types = append(types, string(t))
+				}
+				policyTypes = strings.Join(types, ",")
+			}
+
+			age := duration.HumanDuration(time.Since(np.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(np.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Namespace, np.Name, podSelector, policyTypes, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Namespace, np.Name, podSelector, policyTypes, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(np.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Name, podSelector, policyTypes, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Name, podSelector, policyTypes, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
