@@ -35,6 +35,14 @@ make fmt
 make check
 ```
 
+### Setup Kubestellar Demo Environment
+```
+cd kubectl-multi
+# Script for creating demo environment
+./scripts/create-kubestellar-demo-env.sh
+```
+Follow [Get-Started](https://docs.kubestellar.io/release-0.28.0/direct/get-started/) for detailed guide.
+
 ### Development Workflow
 
 1. **Fork the repository**
