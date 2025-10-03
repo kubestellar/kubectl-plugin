@@ -36,6 +36,7 @@ make check
 ```
 
 ### Setup Kubestellar Demo Environment
+This can help developers to set up multi-cluster where they can test their **kubectl multi** commands.
 ```
 cd kubectl-multi
 # Script for creating demo environment
