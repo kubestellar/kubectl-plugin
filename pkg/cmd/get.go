@@ -308,6 +308,84 @@ func handleAllGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 		return err
 	}
 	tw.Flush()
+
+	fmt.Println("\n==> Jobs")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> CronJobs")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Nodes")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleNodesGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> ReplicaSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleReplicaSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> DaemonSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleDaemonSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Namespaces")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleNamespacesGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> ConfigMaps")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleConfigMapsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> StatefulSets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleStatefulSetsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> Secrets")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handleSecretsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> PersistentVolumes")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handlePVGet(tw, clusters, resourceName, selector, showLabels, outputFormat); err != nil {
+		return err
+	}
+	tw.Flush()
+
+	fmt.Println("\n==> PersistentVolumeClaims")
+	tw = tabwriter.NewWriter(util.GetOutputStream(), 0, 0, 2, ' ', 0)
+	if err := handlePVCGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces); err != nil {
+		return err
+	}
+	tw.Flush()
+
 	return nil
 }
 func handleNodesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
