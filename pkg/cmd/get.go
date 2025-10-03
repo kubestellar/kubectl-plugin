@@ -153,6 +153,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "cronjobs", "cronjob", "cj":
 		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "networkpolicies", "networkpolicy", "np":
+		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
 		return handleAllGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "nodes", "node", "no":
@@ -1723,5 +1725,104 @@ func handleEventsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resou
 			}
 		}
 	}
+	return nil
+}
+
+func handleNetworkPoliciesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		networkPolicies, err := clusterInfo.Client.NetworkingV1().NetworkPolicies(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list networkpolicies in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(networkPolicies.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tPOD-SELECTOR\tPOLICY-TYPES\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, np := range networkPolicies.Items {
+			if resourceName != "" && np.Name != resourceName {
+				continue
+			}
+
+			// Format pod selector
+			podSelector := "<none>"
+			if np.Spec.PodSelector.Size() > 0 {
+				podSelector = metav1.FormatLabelSelector(&np.Spec.PodSelector)
+			}
+
+			// Format policy types
+			policyTypes := "<none>"
+			if len(np.Spec.PolicyTypes) > 0 {
+				var types []string
+				for _, t := range np.Spec.PolicyTypes {
+					types = append(types, string(t))
+				}
+				policyTypes = strings.Join(types, ",")
+			}
+
+			age := duration.HumanDuration(time.Since(np.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(np.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Namespace, np.Name, podSelector, policyTypes, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Namespace, np.Name, podSelector, policyTypes, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(np.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Name, podSelector, policyTypes, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, np.Name, podSelector, policyTypes, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
 	return nil
 }
