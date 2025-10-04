@@ -155,6 +155,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleCronJobsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "serviceaccounts", "serviceaccount", "sa":
 		return handleServiceAccountsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "endpoints", "endpoint", "ep":
+		return handleEndpointsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "networkpolicies", "networkpolicy", "np":
 		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
@@ -254,6 +256,104 @@ func handleServiceAccountsGet(tw *tabwriter.Writer, clusters []cluster.ClusterIn
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n",
 						clusterInfo.Name, sa.Name, secrets, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
+	return nil
+}
+
+func handleEndpointsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		endpoints, err := clusterInfo.Client.CoreV1().Endpoints(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list endpoints in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(endpoints.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tENDPOINTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tENDPOINTS\tAGE\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tENDPOINTS\tAGE\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tENDPOINTS\tAGE\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, ep := range endpoints.Items {
+			if resourceName != "" && ep.Name != resourceName {
+				continue
+			}
+
+			// Format endpoints
+			var endpointsList []string
+			for _, subset := range ep.Subsets {
+				for _, addr := range subset.Addresses {
+					for _, port := range subset.Ports {
+						endpointsList = append(endpointsList, fmt.Sprintf("%s:%d", addr.IP, port.Port))
+					}
+				}
+			}
+
+			endpointsStr := "<none>"
+			if len(endpointsList) > 0 {
+				endpointsStr = strings.Join(endpointsList, ",")
+			}
+
+			age := duration.HumanDuration(time.Since(ep.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(ep.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ep.Namespace, ep.Name, endpointsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ep.Namespace, ep.Name, endpointsStr, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(ep.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ep.Name, endpointsStr, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, ep.Name, endpointsStr, age)
 				}
 			}
 		}
