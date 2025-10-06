@@ -383,8 +383,6 @@ func handleMultiGetCommand(args []string, outputFormat, selector string, showLab
 		return handlePVGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	case "persistentvolumeclaims", "persistentvolumeclaim", "pvc":
 		return handlePVCGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
-	case "role", "roles":
-		return handleRolesGetMulti(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	default:
 		return handleGenericGetMulti(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
@@ -476,12 +474,4 @@ func handleGenericGetMulti(tw *tabwriter.Writer, clusters []MultiGetClusterInfo,
 		infos = append(infos, toClusterInfo(c))
 	}
 	return handleGenericGet(tw, infos, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
-}
-
-func handleRolesGetMulti(tw *tabwriter.Writer, clusters []MultiGetClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
-	var infos []cluster.ClusterInfo
-	for _, c := range clusters {
-		infos = append(infos, toClusterInfo(c))
-	}
-	return handleRolesGet(tw, infos, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 }
