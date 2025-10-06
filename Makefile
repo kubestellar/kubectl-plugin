@@ -34,6 +34,18 @@ install-system: build
 	@sudo chmod +x /usr/local/bin/$(BINARY_NAME)
 	@echo "Installed $(BINARY_NAME) to /usr/local/bin/"
 
+uninstall:
+	@echo "Uninstalling $(BINARY_NAME) ..."
+	@rm -f ~/.local/bin/$(BINARY_NAME)
+	@echo "Uninstalled $(BINARY_NAME)."
+	@echo "Re-install again with: make install"
+
+uninstall-system:
+	@echo "Uninstalling $(BINARY_NAME) system-wide..."
+	@sudo rm -f /usr/local/bin/$(BINARY_NAME)
+	@echo "Uninstalled $(BINARY_NAME)."
+	@echo "Re-install again with: make install-system"
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
