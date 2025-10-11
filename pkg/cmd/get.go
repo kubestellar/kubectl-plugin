@@ -157,6 +157,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleServiceAccountsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "endpoints", "endpoint", "ep":
 		return handleEndpointsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "resourcequotas", "resourcequota", "quota":
+		return handleResourceQuotasGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "networkpolicies", "networkpolicy", "np":
 		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
@@ -356,6 +358,112 @@ func handleEndpointsGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, re
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, ep.Name, endpointsStr, age)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
+	return nil
+}
+
+func handleResourceQuotasGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		resourceQuotas, err := clusterInfo.Client.CoreV1().ResourceQuotas(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list resourcequotas in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(resourceQuotas.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tREQUEST\tLIMIT\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tREQUEST\tLIMIT\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tREQUEST\tLIMIT\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tREQUEST\tLIMIT\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, rq := range resourceQuotas.Items {
+			if resourceName != "" && rq.Name != resourceName {
+				continue
+			}
+
+			age := duration.HumanDuration(time.Since(rq.CreationTimestamp.Time))
+
+			// Format resource requests and limits
+			var requests, limits []string
+			if rq.Status.Hard != nil {
+				for resource, quantity := range rq.Status.Hard {
+					requests = append(requests, fmt.Sprintf("%s: %s", resource, quantity.String()))
+				}
+			}
+			if rq.Status.Used != nil {
+				for resource, quantity := range rq.Status.Used {
+					limits = append(limits, fmt.Sprintf("%s: %s", resource, quantity.String()))
+				}
+			}
+
+			requestStr := "<none>"
+			if len(requests) > 0 {
+				requestStr = strings.Join(requests, ", ")
+			}
+
+			limitStr := "<none>"
+			if len(limits) > 0 {
+				limitStr = strings.Join(limits, ", ")
+			}
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(rq.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, rq.Namespace, rq.Name, age, requestStr, limitStr, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, rq.Namespace, rq.Name, age, requestStr, limitStr)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(rq.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, rq.Name, age, requestStr, limitStr, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, rq.Name, age, requestStr, limitStr)
 				}
 			}
 		}
