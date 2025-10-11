@@ -403,15 +403,15 @@ func handleResourceQuotasGet(tw *tabwriter.Writer, clusters []cluster.ClusterInf
 			// Print header only once at top when any items is greater than 0.
 			if allNamespaces {
 				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tREQUEST\tLIMIT\tLABELS\n")
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tHARD\tUSED\tLABELS\n")
 				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tREQUEST\tLIMIT\n")
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tHARD\tUSED\n")
 				}
 			} else {
 				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tREQUEST\tLIMIT\tLABELS\n")
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tHARD\tUSED\tLABELS\n")
 				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tREQUEST\tLIMIT\n")
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tHARD\tUSED\n")
 				}
 			}
 			isHeaderPrint = true
@@ -424,46 +424,66 @@ func handleResourceQuotasGet(tw *tabwriter.Writer, clusters []cluster.ClusterInf
 
 			age := duration.HumanDuration(time.Since(rq.CreationTimestamp.Time))
 
-			// Format resource requests and limits
-			var requests, limits []string
-			if rq.Status.Hard != nil {
-				for resource, quantity := range rq.Status.Hard {
-					requests = append(requests, fmt.Sprintf("%s: %s", resource, quantity.String()))
+			// Format key quota metrics in a structured way
+			hardLimits := rq.Status.Hard
+			usedResources := rq.Status.Used
+
+			// Extract key metrics: CPU, Memory, Pods
+			var hardCPU, hardMemory, hardPods string = "-", "-", "-"
+			var usedCPU, usedMemory, usedPods string = "-", "-", "-"
+
+			if hardLimits != nil {
+				if val, ok := hardLimits["requests.cpu"]; ok {
+					hardCPU = val.String()
+				} else if val, ok := hardLimits["limits.cpu"]; ok {
+					hardCPU = val.String()
 				}
-			}
-			if rq.Status.Used != nil {
-				for resource, quantity := range rq.Status.Used {
-					limits = append(limits, fmt.Sprintf("%s: %s", resource, quantity.String()))
+				if val, ok := hardLimits["requests.memory"]; ok {
+					hardMemory = val.String()
+				} else if val, ok := hardLimits["limits.memory"]; ok {
+					hardMemory = val.String()
+				}
+				if val, ok := hardLimits["pods"]; ok {
+					hardPods = val.String()
 				}
 			}
 
-			requestStr := "<none>"
-			if len(requests) > 0 {
-				requestStr = strings.Join(requests, ", ")
+			if usedResources != nil {
+				if val, ok := usedResources["requests.cpu"]; ok {
+					usedCPU = val.String()
+				} else if val, ok := usedResources["limits.cpu"]; ok {
+					usedCPU = val.String()
+				}
+				if val, ok := usedResources["requests.memory"]; ok {
+					usedMemory = val.String()
+				} else if val, ok := usedResources["limits.memory"]; ok {
+					usedMemory = val.String()
+				}
+				if val, ok := usedResources["pods"]; ok {
+					usedPods = val.String()
+				}
 			}
 
-			limitStr := "<none>"
-			if len(limits) > 0 {
-				limitStr = strings.Join(limits, ", ")
-			}
+			hardStr := fmt.Sprintf("cpu:%s,mem:%s,pods:%s", hardCPU, hardMemory, hardPods)
+			usedStr := fmt.Sprintf("cpu:%s,mem:%s,pods:%s", usedCPU, usedMemory, usedPods)
 
 			if allNamespaces {
 				if showLabels {
 					labels := util.FormatLabels(rq.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, rq.Namespace, rq.Name, age, requestStr, limitStr, labels)
+						clusterInfo.Name, rq.Namespace, rq.Name, age, hardStr, usedStr, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, rq.Namespace, rq.Name, age, requestStr, limitStr)
+						clusterInfo.Name, rq.Namespace, rq.Name, age, hardStr, usedStr)
 				}
 			} else {
 				if showLabels {
 					labels := util.FormatLabels(rq.Labels)
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, rq.Name, age, requestStr, limitStr, labels)
+						clusterInfo.Name, rq.Name, age, hardStr, usedStr, labels)
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, rq.Name, age, requestStr, limitStr)
+						clusterInfo.Name, rq.Name, age, hardStr, usedStr)
 				}
 			}
 		}
