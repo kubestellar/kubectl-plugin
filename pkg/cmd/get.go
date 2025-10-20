@@ -191,6 +191,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleEventsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "role", "roles":
 		return handleRolesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "storageclasses", "storageclass", "sc":
+		return handleStorageClassesGet(tw, clusters, resourceName, selector, showLabels, outputFormat)
 	default:
 		return handleGenericGet(tw, clusters, resourceType, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	}
@@ -2227,6 +2229,77 @@ func handleRolesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resour
 			}
 			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
 		}
+	}
+
+	return nil
+}
+
+func handleStorageClassesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat string) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		storageClasses, err := clusterInfo.Client.StorageV1().StorageClasses().List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list storageclasses in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(storageClasses.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when items len is greater than 0.
+			if showLabels {
+				fmt.Fprintf(tw, "CLUSTER\tNAME\tPROVISIONER\tRECLAIMPOLICY\tVOLUMEBINDINGMODE\tALLOWVOLUMEEXPANSION\tAGE\tLABELS\n")
+			} else {
+				fmt.Fprintf(tw, "CLUSTER\tNAME\tPROVISIONER\tRECLAIMPOLICY\tVOLUMEBINDINGMODE\tALLOWVOLUMEEXPANSION\tAGE\n")
+			}
+			isHeaderPrint = true
+		}
+
+		for _, sc := range storageClasses.Items {
+			if resourceName != "" && sc.Name != resourceName {
+				continue
+			}
+
+			// Get reclaim policy (default to Delete if not set)
+			reclaimPolicy := "Delete"
+			if sc.ReclaimPolicy != nil {
+				reclaimPolicy = string(*sc.ReclaimPolicy)
+			}
+
+			// Get volume binding mode (default to Immediate if not set)
+			volumeBindingMode := "Immediate"
+			if sc.VolumeBindingMode != nil {
+				volumeBindingMode = string(*sc.VolumeBindingMode)
+			}
+
+			// Get allow volume expansion
+			allowVolumeExpansion := "false"
+			if sc.AllowVolumeExpansion != nil && *sc.AllowVolumeExpansion {
+				allowVolumeExpansion = "true"
+			}
+
+			// Calculate age
+			age := duration.HumanDuration(time.Since(sc.CreationTimestamp.Time))
+
+			if showLabels {
+				labels := util.FormatLabels(sc.Labels)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					clusterInfo.Name, sc.Name, sc.Provisioner, reclaimPolicy, volumeBindingMode, allowVolumeExpansion, age, labels)
+			} else {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					clusterInfo.Name, sc.Name, sc.Provisioner, reclaimPolicy, volumeBindingMode, allowVolumeExpansion, age)
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		fmt.Fprintf(tw, "No resource found.\n")
 	}
 
 	return nil
