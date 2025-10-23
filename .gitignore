@@ -58,3 +58,5 @@ kubeconfig
 
 # Local dev notes
 .dev_notes/
+# Added by goreleaser init:
+dist/
