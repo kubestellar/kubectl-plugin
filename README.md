@@ -15,7 +15,24 @@ kubectl-multi is a kubectl plugin written in Go that automatically discovers Kub
 - **WDS filtering**: Automatically excludes Workload Description Space clusters
 - **Familiar syntax**: Uses the same command structure as kubectl
 
-## Quick Start
+
+## how to install 
+
+### Downloading step for Linux
+```bash
+# Step 1: Download kubectl-multi binary for Linux
+TAG="v0.0.1"
+
+curl -L -o "kubectl-multi_${TAG#v_}_linux_amd64.tar.gz" \
+  "https://github.com/kubestellar/kubectl-multi/releases/download/${TAG}/kubectl-multi_${TAG#v_}_linux_amd64.tar.gz"
+
+  # Step 2: Extract and install
+tar -xzf "kubectl-multi_${TAG#v_}_linux_amd64.tar.gz"
+sudo mv kubectl-multi /usr/local/bin/kubectl-multi
+
+```
+
+## Quick Start for developer
 
 ```bash
 # Install the plugin
