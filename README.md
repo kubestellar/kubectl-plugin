@@ -21,14 +21,20 @@ kubectl-multi is a kubectl plugin written in Go that automatically discovers Kub
 ### Downloading step for Linux
 ```bash
 # Step 1: Download kubectl-multi binary for Linux
-TAG="v0.0.1"
+TAG="v0.0.2"
 
-curl -L -o "kubectl-multi_${TAG#v_}_linux_amd64.tar.gz" \
-  "https://github.com/kubestellar/kubectl-multi/releases/download/${TAG}/kubectl-multi_${TAG#v_}_linux_amd64.tar.gz"
+# Fix: Use ${TAG#v} to remove just 'v', not 'v_'
+curl -L -o "kubectl-multi_${TAG#v}_linux_amd64.tar.gz" \
+  "https://github.com/kubestellar/kubectl-plugin/releases/download/${TAG}/kubectl-multi_${TAG#v}_linux_amd64.tar.gz"
 
-  # Step 2: Extract and install
-tar -xzf "kubectl-multi_${TAG#v_}_linux_amd64.tar.gz"
+# Step 2: Extract and install
+tar -xzf "kubectl-multi_${TAG#v}_linux_amd64.tar.gz"
 sudo mv kubectl-multi /usr/local/bin/kubectl-multi
+
+
+
+#to test 
+kubectl-multi help
 
 ```
 
