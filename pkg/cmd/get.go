@@ -159,6 +159,8 @@ func handleGetCommand(args []string, outputFormat, selector string, showLabels, 
 		return handleEndpointsGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "resourcequotas", "resourcequota", "quota":
 		return handleResourceQuotasGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
+	case "limitranges", "limitrange", "limits":
+		return handleLimitRangesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "networkpolicies", "networkpolicy", "np":
 		return handleNetworkPoliciesGet(tw, clusters, resourceName, selector, showLabels, outputFormat, namespace, allNamespaces)
 	case "all":
@@ -486,6 +488,89 @@ func handleResourceQuotasGet(tw *tabwriter.Writer, clusters []cluster.ClusterInf
 				} else {
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 						clusterInfo.Name, rq.Name, age, hardStr, usedStr)
+				}
+			}
+		}
+	}
+
+	if !isHeaderPrint {
+		// print no resource found if isHeaderPrint is still false at this point
+		if allNamespaces {
+			fmt.Fprintf(tw, "No resource found.\n")
+		} else {
+			if namespace == "" {
+				namespace = "default"
+			}
+			fmt.Fprintf(tw, "No resource found in %s namespace.\n", namespace)
+		}
+	}
+
+	return nil
+}
+
+func handleLimitRangesGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
+	isHeaderPrint := false
+
+	for _, clusterInfo := range clusters {
+		if clusterInfo.Client == nil {
+			continue
+		}
+
+		targetNS := cluster.GetTargetNamespace(namespace)
+		if allNamespaces {
+			targetNS = ""
+		}
+
+		limitRanges, err := clusterInfo.Client.CoreV1().LimitRanges(targetNS).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			fmt.Printf("Warning: failed to list limitranges in cluster %s: %v\n", clusterInfo.Name, err)
+			continue
+		}
+
+		if len(limitRanges.Items) > 0 && !isHeaderPrint {
+			// Print header only once at top when any items is greater than 0.
+			if allNamespaces {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCREATED AT\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tCREATED AT\n")
+				}
+			} else {
+				if showLabels {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tCREATED AT\tLABELS\n")
+				} else {
+					fmt.Fprintf(tw, "CLUSTER\tNAME\tCREATED AT\n")
+				}
+			}
+			isHeaderPrint = true
+		}
+
+		for _, lr := range limitRanges.Items {
+			if resourceName != "" && lr.Name != resourceName {
+				continue
+			}
+
+			age := duration.HumanDuration(time.Since(lr.CreationTimestamp.Time))
+
+			if allNamespaces {
+				if showLabels {
+					labels := util.FormatLabels(lr.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, lr.Namespace, lr.Name, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, lr.Namespace, lr.Name, age)
+				}
+			} else {
+				if showLabels {
+					labels := util.FormatLabels(lr.Labels)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+						clusterInfo.Name, lr.Name, age, labels)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\n",
+						clusterInfo.Name, lr.Name, age)
 				}
 			}
 		}
