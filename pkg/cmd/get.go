@@ -1621,6 +1621,9 @@ func handlePVCGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resource
 func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, resourceType, resourceName, selector string, showLabels bool, outputFormat, namespace string, allNamespaces bool) error {
 	isHeaderPrint := false
 
+	// Get column definitions for this resource type
+	columns := util.GetResourceColumns(resourceType)
+
 	for _, clusterInfo := range clusters {
 		if clusterInfo.DynamicClient == nil {
 			continue
@@ -1653,19 +1656,26 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 
 		if len(list.Items) > 0 && !isHeaderPrint {
 			// Print header only once at top when any items is greater than 0.
-			if allNamespaces {
-				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\tLABELS\n")
-				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAMESPACE\tNAME\tAGE\n")
-				}
-			} else {
-				if showLabels {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\tLABELS\n")
-				} else {
-					fmt.Fprintf(tw, "CLUSTER\tNAME\tAGE\n")
-				}
+			// Build header with CLUSTER, then NAMESPACE (if allNamespaces), then NAME, then resource-specific columns, then LABELS (if showLabels)
+			var headerParts []string
+			headerParts = append(headerParts, "CLUSTER")
+
+			if isNamespaced && allNamespaces {
+				headerParts = append(headerParts, "NAMESPACE")
 			}
+
+			headerParts = append(headerParts, "NAME")
+
+			// Add resource-specific columns
+			for _, col := range columns {
+				headerParts = append(headerParts, col.Name)
+			}
+
+			if showLabels {
+				headerParts = append(headerParts, "LABELS")
+			}
+
+			fmt.Fprintf(tw, "%s\n", strings.Join(headerParts, "\t"))
 			isHeaderPrint = true
 		}
 
@@ -1674,27 +1684,27 @@ func handleGenericGet(tw *tabwriter.Writer, clusters []cluster.ClusterInfo, reso
 				continue
 			}
 
-			age := duration.HumanDuration(time.Since(item.GetCreationTimestamp().Time))
+			var rowParts []string
+			rowParts = append(rowParts, clusterInfo.Name)
 
 			if isNamespaced && allNamespaces {
-				if showLabels {
-					labels := util.FormatLabels(item.GetLabels())
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, item.GetNamespace(), item.GetName(), age, labels)
-				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, item.GetNamespace(), item.GetName(), age)
-				}
-			} else {
-				if showLabels {
-					labels := util.FormatLabels(item.GetLabels())
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-						clusterInfo.Name, item.GetName(), age, labels)
-				} else {
-					fmt.Fprintf(tw, "%s\t%s\t%s\n",
-						clusterInfo.Name, item.GetName(), age)
-				}
+				rowParts = append(rowParts, item.GetNamespace())
 			}
+
+			rowParts = append(rowParts, item.GetName())
+
+			// Add resource-specific column values
+			for _, col := range columns {
+				value := util.ExtractColumnValue(&item, col)
+				rowParts = append(rowParts, value)
+			}
+
+			if showLabels {
+				labels := util.FormatLabels(item.GetLabels())
+				rowParts = append(rowParts, labels)
+			}
+
+			fmt.Fprintf(tw, "%s\n", strings.Join(rowParts, "\t"))
 		}
 	}
 
